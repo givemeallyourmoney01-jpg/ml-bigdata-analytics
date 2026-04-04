@@ -1,0 +1,23 @@
+ml-bigdata-analytics/
+├─ requirements.txt
+├─ .gitignore
+├─ src/
+│  ├─ __init__.py
+│  ├─ config.py
+│  ├─ spark_utils.py
+│  ├─ data_ingestion.py
+│  ├─ data_cleaning.py
+│  ├─ features.py
+│  ├─ train.py
+│  ├─ evaluate.py
+│  ├─ save_artifacts.py
+│  └─ predict_service.py
+├─ scripts/
+│  ├─ run_pipeline.py
+│  └─ run_inference_example.py
+├─ dashboard/
+│  └─ app.py
+└─ notebooks/
+   ├─ 01_eda_template.ipynb
+   ├─ 02_feature_engineering_template.ipynb
+   └─ 03_modeling_template.ipynb
