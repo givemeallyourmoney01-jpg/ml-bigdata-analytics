@@ -1,15 +1,31 @@
+# Virtual environments
 .venv/
 venv/
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.ipynb_checkpoints/
-.env
-.DS_Store
 
+# Environment files
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data and outputs (keep folders, not heavy files)
 data/raw/*
 data/processed/*
 models/*
 artifacts/*
-!.gitkeep
+
+# Keep directory structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!models/.gitkeep
+!artifacts/.gitkeep
