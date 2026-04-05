@@ -10,7 +10,7 @@ import streamlit as st
 from src.config import Paths
 
 # -----------------------------
-# Page config + lightweight styling
+# Page setup
 # -----------------------------
 st.set_page_config(
     page_title="NYC Taxi Fare Intelligence",
@@ -18,41 +18,23 @@ st.set_page_config(
     layout="wide",
 )
 
-st.markdown(
-    """
-    <style>
-    .main > div {padding-top: 1.2rem;}
-    .block-container {padding-top: 1rem; padding-bottom: 2rem;}
-    .kpi-card {
-        background: #0f172a;
-        border: 1px solid #1e293b;
-        border-radius: 14px;
-        padding: 14px 16px;
-    }
-    .kpi-title {font-size: 0.85rem; color: #94a3b8;}
-    .kpi-value {font-size: 1.35rem; font-weight: 700; color: #f8fafc;}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 st.title("🚕 NYC Taxi Fare Intelligence")
-st.caption("Professional ML dashboard for analytics, single prediction, and batch scoring")
+st.caption("ML dashboard for analytics, single prediction, and batch scoring")
 
 # -----------------------------
-# Paths and robust file discovery
+# Paths and fallback discovery
 # -----------------------------
 paths = Paths()
 
-# Primary paths from config
+# Config-defined paths (may or may not exist)
 metrics_path = Path(paths.metrics_path)
 features_path = Path(paths.features_parquet)
 
-# Known artifacts
+# Model artifacts
 model_path = Path("artifacts/final_model.pkl")
 feature_cols_path = Path("artifacts/train_feature_columns.json")
 
-# Fallback candidates if config points to missing files
+# Fallback locations for metrics/features
 metrics_candidates = [
     metrics_path,
     Path("artifacts/metrics.json"),
@@ -75,8 +57,8 @@ def first_existing(candidates):
             return Path(p)
     return None
 
-metrics_found = first_existing(metrics_candidates)
-features_found = first_existing(features_candidates)
+metrics_file = first_existing(metrics_candidates)
+features_file = first_existing(features_candidates)
 
 # -----------------------------
 # Cached loaders
@@ -91,17 +73,24 @@ def load_json(path: Path):
         return json.load(f)
 
 @st.cache_data
-def load_features(path: Path):
+def load_parquet(path: Path):
     return pd.read_parquet(path)
 
-def align_to_training_schema(df: pd.DataFrame, train_cols: list) -> pd.DataFrame:
-    x = df.copy()
-    for c in train_cols:
-        if c not in x.columns:
-            x[c] = 0
-    return x[train_cols]
+def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
+    out = df.copy()
+    for col in feature_cols:
+        if col not in out.columns:
+            out[col] = 0
+    return out[feature_cols]
 
-def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id):
+def build_input_row(
+    passenger_count: int,
+    trip_distance: float,
+    pickup_hour: int,
+    pickup_weekday: int,
+    pickup_month: int,
+    vendor_id: int,
+) -> pd.DataFrame:
     return pd.DataFrame([{
         "passenger_count": passenger_count,
         "trip_distance": trip_distance,
@@ -114,62 +103,47 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
 # -----------------------------
 # Load resources safely
 # -----------------------------
+metrics = {}
+if metrics_file:
+    try:
+        metrics = load_json(metrics_file)
+    except Exception:
+        metrics = {}
+
+df = None
+if features_file:
+    try:
+        df = load_parquet(features_file)
+    except Exception:
+        df = None
+
 model_ready = model_path.exists() and feature_cols_path.exists()
 model = None
-train_cols = []
+feature_cols = []
+
 if model_ready:
     try:
         model = load_model(model_path)
-        train_cols = load_json(feature_cols_path)
+        feature_cols = load_json(feature_cols_path)
     except Exception as e:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
-metrics = {}
-if metrics_found is not None:
-    try:
-        metrics = load_json(metrics_found)
-    except Exception:
-        metrics = {}
-
-df_features = None
-if features_found is not None:
-    try:
-        df_features = load_features(features_found)
-    except Exception:
-        df_features = None
-
 # -----------------------------
-# KPI row (professional cards)
+# KPI row
 # -----------------------------
-c1, c2, c3, c4 = st.columns(4)
+k1, k2, k3, k4 = st.columns(4)
+k1.metric("Model Ready", "Yes ✅" if model_ready else "No ❌")
+k2.metric("RMSE", str(metrics.get("rmse", "N/A")))
+k3.metric("MAE", str(metrics.get("mae", "N/A")))
+k4.metric("R²", str(metrics.get("r2", "N/A")))
 
-def kpi(col, title, value):
-    col.markdown(
-        f"""
-        <div class="kpi-card">
-            <div class="kpi-title">{title}</div>
-            <div class="kpi-value">{value}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-kpi(c1, "Model Status", "READY ✅" if model_ready else "NOT READY ❌")
-kpi(c2, "RMSE", str(metrics.get("rmse", "N/A")))
-kpi(c3, "MAE", str(metrics.get("mae", "N/A")))
-kpi(c4, "R²", str(metrics.get("r2", "N/A")))
-
-st.markdown("")
-
-# Friendly info instead of harsh "not found"
-info_msgs = []
 if not metrics:
-    info_msgs.append("Metrics unavailable (run training to generate metrics JSON).")
-if df_features is None:
-    info_msgs.append("Feature dataset unavailable (run feature pipeline to enable charts).")
-if info_msgs:
-    st.info(" | ".join(info_msgs))
+    st.info("Metrics unavailable right now. Predictions can still run if model artifacts are present.")
+if df is None:
+    st.info("Feature dataset unavailable right now. Analytics charts may be limited.")
+
+st.markdown("---")
 
 # -----------------------------
 # Tabs
@@ -177,136 +151,131 @@ if info_msgs:
 tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🎯 Single Prediction", "📦 Batch Prediction"])
 
 # -----------------------------
-# TAB 1 Dashboard
+# Dashboard tab
 # -----------------------------
 with tab1:
-    left, right = st.columns([1.1, 1])
+    c1, c2 = st.columns(2)
 
-    with left:
-        st.subheader("Model Details")
+    with c1:
+        st.subheader("Model Metrics")
         if metrics:
             st.json(metrics)
-            if metrics_found:
-                st.caption(f"Metrics source: `{metrics_found}`")
+            st.caption(f"Source: `{metrics_file}`")
         else:
-            st.write("No metrics loaded yet.")
+            st.write("No metrics JSON found in configured/fallback paths.")
 
-    with right:
+    with c2:
         st.subheader("Data Snapshot")
-        if df_features is not None:
-            st.dataframe(df_features.head(10), use_container_width=True)
-            st.caption(f"Rows: {len(df_features):,} | Columns: {df_features.shape[1]}")
-            if features_found:
-                st.caption(f"Feature source: `{features_found}`")
+        if df is not None:
+            st.dataframe(df.head(10), use_container_width=True)
+            st.caption(f"Rows: {len(df):,} | Columns: {df.shape[1]}")
+            st.caption(f"Source: `{features_file}`")
         else:
-            st.write("No features dataset loaded yet.")
+            st.write("No feature parquet found in configured/fallback paths.")
 
-    if df_features is not None:
-        g1, g2 = st.columns(2)
+    ch1, ch2 = st.columns(2)
+    with ch1:
+        st.subheader("Pickup Hour Distribution")
+        if df is not None and "pickup_hour" in df.columns:
+            fig = px.histogram(df, x="pickup_hour", nbins=24, title="Trip Count by Pickup Hour")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.caption("Chart unavailable (missing data/column).")
 
-        with g1:
-            if "pickup_hour" in df_features.columns:
-                fig1 = px.histogram(
-                    df_features,
-                    x="pickup_hour",
-                    nbins=24,
-                    title="Trip Count by Pickup Hour",
-                    color_discrete_sequence=["#3b82f6"],
-                )
-                st.plotly_chart(fig1, use_container_width=True)
-
-        with g2:
-            if "trip_duration_min" in df_features.columns:
-                fig2 = px.histogram(
-                    df_features,
-                    x="trip_duration_min",
-                    nbins=80,
-                    title="Trip Duration Distribution (minutes)",
-                    color_discrete_sequence=["#10b981"],
-                )
-                st.plotly_chart(fig2, use_container_width=True)
+    with ch2:
+        st.subheader("Duration Distribution")
+        if df is not None and "trip_duration_min" in df.columns:
+            fig2 = px.histogram(df, x="trip_duration_min", nbins=80, title="Trip Duration (min)")
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.caption("Chart unavailable (missing data/column).")
 
 # -----------------------------
-# TAB 2 Single Prediction
+# Single prediction tab
 # -----------------------------
 with tab2:
     st.subheader("Fare Estimator")
-    st.caption("Enter trip attributes to get a fare estimate.")
+    st.caption("Enter trip details and estimate fare.")
 
     if not model_ready:
-        st.warning("Model not ready. Ensure artifacts/final_model.pkl and train_feature_columns.json exist.")
+        st.warning("Prediction unavailable. Ensure artifacts/final_model.pkl and train_feature_columns.json exist.")
     else:
         a, b, c = st.columns(3)
 
         with a:
-            passenger_count = st.number_input("Passenger Count", 1, 8, 1, 1)
-            trip_distance = st.number_input("Trip Distance (miles)", 0.1, 100.0, 2.5, 0.1)
+            passenger_count = st.number_input("Passenger Count", min_value=1, max_value=8, value=1, step=1)
+            trip_distance = st.number_input("Trip Distance (miles)", min_value=0.1, max_value=100.0, value=2.5, step=0.1)
 
         with b:
-            pickup_hour = st.slider("Pickup Hour", 0, 23, 14)
-            pickup_weekday = st.slider("Pickup Weekday (0=Mon, 6=Sun)", 0, 6, datetime.now().weekday())
+            pickup_hour = st.slider("Pickup Hour", min_value=0, max_value=23, value=14)
+            pickup_weekday = st.slider("Pickup Weekday (0=Mon, 6=Sun)", min_value=0, max_value=6, value=datetime.now().weekday())
 
         with c:
-            pickup_month = st.slider("Pickup Month", 1, 12, datetime.now().month)
-            vendor_id = st.selectbox("Vendor ID", [1, 2], index=0)
+            pickup_month = st.slider("Pickup Month", min_value=1, max_value=12, value=datetime.now().month)
+            vendor_id = st.selectbox("Vendor ID", options=[1, 2], index=0)
 
-        if st.button("Predict Fare", type="primary", use_container_width=True):
+        if st.button("Predict Fare", type="primary"):
             try:
                 row = build_input_row(
-                    passenger_count,
-                    trip_distance,
-                    pickup_hour,
-                    pickup_weekday,
-                    pickup_month,
-                    vendor_id,
+                    passenger_count=passenger_count,
+                    trip_distance=trip_distance,
+                    pickup_hour=pickup_hour,
+                    pickup_weekday=pickup_weekday,
+                    pickup_month=pickup_month,
+                    vendor_id=vendor_id,
                 )
-                X = align_to_training_schema(row, train_cols)
+                X = align_to_training_schema(row, feature_cols)
                 pred = float(model.predict(X)[0])
                 pred = max(pred, 0.0)
 
                 st.success(f"Estimated Fare: **${pred:.2f}**")
-                st.caption("Note: estimate excludes dynamic factors like tolls, traffic shocks, and surge-like effects.")
+                st.caption("Estimate may vary from actual due to traffic, tolls, route changes, and time effects.")
             except Exception as e:
-                st.error(f"Prediction error: {e}")
+                st.error(f"Prediction failed: {e}")
 
 # -----------------------------
-# TAB 3 Batch Prediction
+# Batch prediction tab
 # -----------------------------
 with tab3:
-    st.subheader("Batch Scoring (CSV Upload)")
-    st.caption("Upload a CSV and download predictions.")
+    st.subheader("Batch Prediction (CSV)")
+    st.caption("Upload a CSV, generate predictions, and download output.")
 
     if not model_ready:
-        st.warning("Batch scoring unavailable until model artifacts are present.")
+        st.warning("Batch prediction unavailable. Missing model artifacts.")
     else:
         st.code("Required columns: passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, VendorID")
+        uploaded = st.file_uploader("Upload CSV file", type=["csv"])
 
-        file = st.file_uploader("Upload CSV", type=["csv"])
-
-        if file is not None:
+        if uploaded is not None:
             try:
-                raw = pd.read_csv(file)
-                st.dataframe(raw.head(10), use_container_width=True)
+                batch_df = pd.read_csv(uploaded)
+                st.dataframe(batch_df.head(10), use_container_width=True)
 
-                required = ["passenger_count", "trip_distance", "pickup_hour", "pickup_weekday", "pickup_month", "VendorID"]
-                missing = [c for c in required if c not in raw.columns]
+                required = [
+                    "passenger_count",
+                    "trip_distance",
+                    "pickup_hour",
+                    "pickup_weekday",
+                    "pickup_month",
+                    "VendorID",
+                ]
+                missing = [c for c in required if c not in batch_df.columns]
                 if missing:
                     st.error(f"Missing required columns: {missing}")
                 else:
-                    Xb = align_to_training_schema(raw, train_cols)
+                    Xb = align_to_training_schema(batch_df, feature_cols)
                     preds = model.predict(Xb)
 
-                    out = raw.copy()
+                    out = batch_df.copy()
                     out["predicted_fare"] = preds
                     st.success(f"Predictions generated for {len(out):,} rows.")
                     st.dataframe(out.head(20), use_container_width=True)
 
                     st.download_button(
-                        "⬇️ Download predictions CSV",
+                        label="⬇️ Download predictions CSV",
                         data=out.to_csv(index=False).encode("utf-8"),
-                        file_name="batch_predictions.csv",
+                        file_name="predictions_output.csv",
                         mime="text/csv",
-                        use_container_width=True,
                     )
             except Exception as e:
-                st.error(f"Could not process file: {e}")
+                st.error(f"Failed to process uploaded file: {e}")
