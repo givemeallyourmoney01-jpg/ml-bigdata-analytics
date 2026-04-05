@@ -132,9 +132,19 @@ if model_ready:
         model_ready = False
 
 # Flexible metric keys
-rmse_val = pick_metric(metrics, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
-mae_val = pick_metric(metrics, ["mae", "test_mae", "best_mae", "val_mae"])
-r2_val = pick_metric(metrics, ["r2", "test_r2", "best_r2", "val_r2"])
+metrics_block = metrics.get("metrics", {}) if isinstance(metrics, dict) else {}
+
+rmse_val = pick_metric(metrics_block, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
+if rmse_val == "N/A":
+    rmse_val = pick_metric(metrics, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
+
+mae_val = pick_metric(metrics_block, ["mae", "test_mae", "best_mae", "val_mae"])
+if mae_val == "N/A":
+    mae_val = pick_metric(metrics, ["mae", "test_mae", "best_mae", "val_mae"])
+
+r2_val = pick_metric(metrics_block, ["r2", "test_r2", "best_r2", "val_r2"])
+if r2_val == "N/A":
+    r2_val = pick_metric(metrics, ["r2", "test_r2", "best_r2", "val_r2"])
 
 # -----------------------------
 # KPI row
