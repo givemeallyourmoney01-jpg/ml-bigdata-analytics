@@ -29,3 +29,4 @@ artifacts/*
 !data/processed/.gitkeep
 !models/.gitkeep
 !artifacts/.gitkeep
+notebooks/artifacts/
