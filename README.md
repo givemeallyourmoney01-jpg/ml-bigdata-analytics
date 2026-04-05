@@ -1,14 +1,15 @@
 # ML Big Data Analytics
 
-End-to-end **Taxi Fare Prediction** project using **Python, Pandas, Scikit-learn, and PySpark-ready structure**.
+End-to-end **NYC Taxi Fare Prediction** project using **Python, Pandas, Scikit-learn**, with a **Streamlit dashboard** for analytics and inference.
 
 ## 📌 Objective
 Build a robust regression pipeline to predict `total_amount` from trip-level taxi data, with:
 - EDA + cleaning
-- feature engineering
-- model comparison
-- tuning
-- inference pipeline
+- Feature engineering
+- Model comparison
+- Hyperparameter tuning
+- Inference pipeline
+- Interactive dashboard (KPIs, charts, single + batch prediction)
 
 ---
 
@@ -16,6 +17,8 @@ Build a robust regression pipeline to predict `total_amount` from trip-level tax
 
 ```text
 ml-bigdata-analytics/
+│── dashboard/
+│   └── app.py                       # Streamlit dashboard UI
 │── data/
 │   ├── raw/                         # input datasets
 │   └── processed/                   # cleaned outputs
@@ -24,11 +27,13 @@ ml-bigdata-analytics/
 │── src/
 │   ├── train.py                     # train + evaluate + save artifacts
 │   ├── predict.py                   # batch inference pipeline
+│   ├── config.py                    # centralized paths/config
 │   └── predict_service.py           # optional legacy name (if retained)
 │── artifacts/
 │   ├── day3_model_comparison.csv
 │   ├── day4_rf_tuning_results.csv
-│   ├── final_model.pkl              # local artifact (optional in git)
+│   ├── final_model.pkl
+│   ├── train_feature_columns.json
 │   ├── final_model_metadata.json
 │   └── predictions.csv
 │── requirements.txt
@@ -46,7 +51,7 @@ git clone https://github.com/givemeallyourmoney01-jpg/ml-bigdata-analytics.git
 cd ml-bigdata-analytics
 ```
 
-### 2) Create venv
+### 2) Create virtual environment
 
 **Windows (PowerShell)**
 ```powershell
@@ -98,40 +103,60 @@ Final metrics:
 - Built inference flow to load model and generate `predicted_total_amount`
 - Exports predictions to `artifacts/predictions.csv`
 
-### Day 6 Final Polish
-
-- Updated model metadata timestamp generation to timezone-aware UTC:
+### Day 6 (Final polish)
+- Updated metadata timestamp generation to timezone-aware UTC:
   - `datetime.now(UTC).isoformat().replace("+00:00", "Z")`
-- Re-ran training pipeline successfully on `yellow_tripdata_2015-01.csv`
-- Final evaluation metrics:
-  - **RMSE:** 0.351503
-  - **MAE:** 0.026806
-  - **R²:** 0.999041
-- Inference pipeline verified:
+- Re-ran training successfully on `yellow_tripdata_2015-01.csv`
+- Verified inference:
   - `python src/predict.py` generates `artifacts/predictions.csv`
 
-## Reproducibility
+---
+
+## 📊 Streamlit Dashboard
+
+The dashboard is available in:
+
+- `dashboard/app.py`
+
+### Features
+- KPI cards for:
+  - Model readiness
+  - RMSE / MAE / R² (auto-loaded from metadata JSON)
+- Dataset snapshot preview
+- Analytics charts:
+  - Pickup hour distribution
+  - Trip duration distribution (if present in dataset)
+- Single prediction form
+- Batch CSV prediction + downloadable output
+
+### Run dashboard locally
+```bash
+streamlit run dashboard/app.py
+```
+
+### Dashboard data/artifact expectations
+- Model: `artifacts/final_model.pkl`
+- Feature schema: `artifacts/train_feature_columns.json`
+- Metrics: `artifacts/final_model_metadata.json`
+- Analytics sample data (preferred): `data/processed/day2_sample_clean.csv`
+
+---
+
+## 🔁 Reproducibility
 
 ```bash
 python src/train.py
 python src/predict.py
+streamlit run dashboard/app.py
 ```
 
 ---
 
-## ▶️ Usage
+## ▶️ Script Usage
 
-### Notebook workflow
-```bash
-code .
-```
-Open `notebooks/eda.ipynb`, select `.venv` kernel, run all cells.
-
-### Script workflow
-
-#### Train
+### Train
 1. Place dataset in `data/raw/`
-2. Update `DATA_PATH` inside `src/train.py`
+2. Update data path/config in `src/train.py` or `src/config.py`
 3. Run:
 
 ```bash
@@ -143,7 +168,7 @@ Generated:
 - `artifacts/train_feature_columns.json`
 - `artifacts/final_model_metadata.json`
 
-#### Predict
+### Predict
 1. Place inference file at `data/raw/new_trips.csv`
 2. Run:
 
@@ -162,6 +187,8 @@ Output:
 - Pandas
 - Scikit-learn
 - Matplotlib / Seaborn
+- Plotly
+- Streamlit
 - PySpark (project-ready structure)
 
 ---
