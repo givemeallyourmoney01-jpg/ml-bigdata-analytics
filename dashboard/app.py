@@ -7,41 +7,24 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from src.config import Paths
-
 st.set_page_config(page_title="NYC Taxi Fare Intelligence", page_icon="🚕", layout="wide")
 st.title("🚕 NYC Taxi Fare Intelligence")
 st.caption("ML dashboard for analytics, single prediction, and batch scoring")
 
 # -----------------------------
-# Base paths
+# Paths
 # -----------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent  # repo root
-
-paths = Paths()
-
-def to_abs(p: Path) -> Path:
-    p = Path(p)
-    return p if p.is_absolute() else (BASE_DIR / p)
-
-# Optional config-derived paths (kept for compatibility)
-raw_metrics_path = to_abs(Path(paths.metrics_path))
-raw_features_path = to_abs(Path(paths.features_parquet))
 
 model_path = BASE_DIR / "artifacts" / "final_model.pkl"
 feature_cols_path = BASE_DIR / "artifacts" / "train_feature_columns.json"
 
-# -----------------------------
-# HARD FORCE known-good files
-# -----------------------------
 metrics_file = BASE_DIR / "artifacts" / "final_model_metadata.json"
 features_file = BASE_DIR / "data" / "processed" / "day2_sample_clean.csv"
 
 if not metrics_file.exists():
-    # fallback chain
     for p in [
         BASE_DIR / "artifacts" / "metrics.json",
-        raw_metrics_path,
         BASE_DIR / "metrics.json",
         BASE_DIR / "outputs" / "metrics.json",
         BASE_DIR / "artifacts" / "model_metrics.json",
@@ -53,11 +36,9 @@ if not metrics_file.exists():
         metrics_file = None
 
 if not features_file.exists():
-    # fallback chain
     for p in [
         BASE_DIR / "data" / "processed" / "day1_sample_clean.csv",
         BASE_DIR / "data" / "processed" / "features.parquet",
-        raw_features_path,
         BASE_DIR / "artifacts" / "features.parquet",
         BASE_DIR / "features.parquet",
         BASE_DIR / "outputs" / "features.parquet",
@@ -75,7 +56,6 @@ if not features_file.exists():
 def load_model(path: Path):
     return joblib.load(path)
 
-# NOTE: no cache here to avoid stale "not found" state
 def load_json(path: Path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -86,6 +66,12 @@ def load_dataset(path: Path):
     if path.suffix.lower() == ".csv":
         return pd.read_csv(path)
     return None
+
+def pick_metric(d: dict, keys: list, default="N/A"):
+    for k in keys:
+        if k in d and d[k] is not None:
+            return d[k]
+    return default
 
 def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
     out = df.copy()
@@ -103,12 +89,6 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
         "pickup_month": pickup_month,
         "VendorID": vendor_id,
     }])
-
-def pick_metric(d: dict, keys: list, default="N/A"):
-    for k in keys:
-        if k in d and d[k] is not None:
-            return d[k]
-    return default
 
 # -----------------------------
 # Load resources
@@ -139,9 +119,7 @@ if model_ready:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
-# -----------------------------
-# Metric extraction (supports nested metrics)
-# -----------------------------
+# Supports nested and flat metrics JSON
 metrics_block = metrics.get("metrics", {}) if isinstance(metrics, dict) else {}
 
 rmse_val = pick_metric(metrics_block, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
@@ -165,15 +143,6 @@ k2.metric("RMSE", f"{float(rmse_val):.4f}" if rmse_val != "N/A" else "N/A")
 k3.metric("MAE", f"{float(mae_val):.4f}" if mae_val != "N/A" else "N/A")
 k4.metric("R²", f"{float(r2_val):.4f}" if r2_val != "N/A" else "N/A")
 
-# Debug panel (remove later if you want)
-with st.expander("Debug paths (temporary)", expanded=False):
-    st.write("APP FILE:", str(Path(__file__).resolve()))
-    st.write("BASE_DIR:", str(BASE_DIR))
-    st.write("metrics_file:", str(metrics_file) if metrics_file else "None")
-    st.write("features_file:", str(features_file) if features_file else "None")
-    st.write("model_path exists:", model_path.exists())
-    st.write("feature_cols_path exists:", feature_cols_path.exists())
-
 if not metrics:
     st.info("Metrics unavailable right now. Predictions can still run if model artifacts are present.")
 if df is None:
@@ -183,9 +152,6 @@ st.markdown("---")
 
 tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🎯 Single Prediction", "📦 Batch Prediction"])
 
-# -----------------------------
-# Dashboard tab
-# -----------------------------
 with tab1:
     c1, c2 = st.columns(2)
 
@@ -207,6 +173,7 @@ with tab1:
             st.write("No feature dataset found in configured/fallback paths.")
 
     ch1, ch2 = st.columns(2)
+
     with ch1:
         st.subheader("Pickup Hour Distribution")
         if df is not None and "pickup_hour" in df.columns:
@@ -223,9 +190,6 @@ with tab1:
         else:
             st.caption("Chart unavailable (missing data/column).")
 
-# -----------------------------
-# Single prediction tab
-# -----------------------------
 with tab2:
     st.subheader("Fare Estimator")
     st.caption("Enter trip details and estimate fare.")
@@ -249,7 +213,14 @@ with tab2:
 
         if st.button("Predict Fare", type="primary"):
             try:
-                row = build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id)
+                row = build_input_row(
+                    passenger_count,
+                    trip_distance,
+                    pickup_hour,
+                    pickup_weekday,
+                    pickup_month,
+                    vendor_id,
+                )
                 X = align_to_training_schema(row, feature_cols)
                 pred = float(model.predict(X)[0])
                 pred = max(pred, 0.0)
@@ -258,9 +229,6 @@ with tab2:
             except Exception as e:
                 st.error(f"Prediction failed: {e}")
 
-# -----------------------------
-# Batch prediction tab
-# -----------------------------
 with tab3:
     st.subheader("Batch Prediction (CSV)")
     st.caption("Upload a CSV, generate predictions, and download output.")
