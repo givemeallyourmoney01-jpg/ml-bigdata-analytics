@@ -1,5 +1,11 @@
 # ML Big Data Analytics
 
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?logo=pandas&logoColor=white)
+![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-F7931E?logo=scikitlearn&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit&logoColor=white)
+![Status](https://img.shields.io/badge/Project-Active-success)
+
 End-to-end **NYC Taxi Fare Prediction** project using **Python, Pandas, Scikit-learn**, with a **Streamlit dashboard** for analytics and inference.
 
 ## 📌 Objective
@@ -13,10 +19,29 @@ Build a robust regression pipeline to predict `total_amount` from trip-level tax
 
 ---
 
+## 📸 Dashboard Preview
+
+> Add screenshots to `assets/` with the filenames below.
+
+### Main Dashboard
+![Dashboard Main](assets/dashboard-main.png)
+
+### Single Prediction
+![Dashboard Single Prediction](assets/dashboard-single-prediction.png)
+
+### Batch Prediction
+![Dashboard Batch Prediction](assets/dashboard-batch-prediction.png)
+
+---
+
 ## 🗂️ Project Structure
 
 ```text
 ml-bigdata-analytics/
+│── assets/
+│   ├── dashboard-main.png
+│   ├── dashboard-single-prediction.png
+│   └── dashboard-batch-prediction.png
 │── dashboard/
 │   └── app.py                       # Streamlit dashboard UI
 │── data/
@@ -114,8 +139,7 @@ Final metrics:
 
 ## 📊 Streamlit Dashboard
 
-The dashboard is available in:
-
+Dashboard entrypoint:
 - `dashboard/app.py`
 
 ### Features
