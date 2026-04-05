@@ -56,8 +56,14 @@ def first_existing(candidates):
             return Path(p)
     return None
 
-metrics_file = first_existing(metrics_candidates)
-features_file = first_existing(features_candidates)
+# HARD FORCE (based on your verified files)
+metrics_file = BASE_DIR / "artifacts" / "final_model_metadata.json"
+features_file = BASE_DIR / "data" / "processed" / "day2_sample_clean.csv"
+
+if not metrics_file.exists():
+    metrics_file = None
+if not features_file.exists():
+    features_file = None
 
 # -----------------------------
 # Loaders
