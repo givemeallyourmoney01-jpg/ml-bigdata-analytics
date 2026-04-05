@@ -105,5 +105,6 @@ python src/main.py
 ---
 
 ## 👤 Author
-**Jafar Kachhi**  
+**Jafar Kachhi**
+**Janvi Patel**
 GitHub: [givemeallyourmoney01-jpg](https://github.com/givemeallyourmoney01-jpg)
