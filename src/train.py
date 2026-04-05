@@ -10,49 +10,58 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
-DATA_PATH = "data/raw/yellow_tripdata_2015-01.csv"   # <-- change this
+DATA_PATH = "data/raw/yellow_tripdata_2015-01.csv"
 ARTIFACT_DIR = "artifacts"
 TARGET = "total_amount"
 SAMPLE_SIZE = 300000
 RANDOM_STATE = 42
 
+# ONLY features available in Streamlit single prediction form
+MODEL_FEATURES = [
+    "passenger_count",
+    "trip_distance",
+    "pickup_hour",
+    "pickup_dayofweek",
+    "pickup_month",
+    "VendorID",
+]
+
 
 def preprocess_training_data(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
 
-    # Datetime features
+    # Datetime parsing
     d["tpep_pickup_datetime"] = pd.to_datetime(d["tpep_pickup_datetime"], errors="coerce")
     d["tpep_dropoff_datetime"] = pd.to_datetime(d["tpep_dropoff_datetime"], errors="coerce")
 
+    # Form-aligned time features
     d["pickup_hour"] = d["tpep_pickup_datetime"].dt.hour
     d["pickup_dayofweek"] = d["tpep_pickup_datetime"].dt.dayofweek
-    d["trip_duration_min"] = (
-        (d["tpep_dropoff_datetime"] - d["tpep_pickup_datetime"]).dt.total_seconds() / 60
-    )
+    d["pickup_month"] = d["tpep_pickup_datetime"].dt.month
 
-    d = d.drop(columns=["tpep_pickup_datetime", "tpep_dropoff_datetime"], errors="ignore")
+    # Keep only needed columns + target
+    keep_cols = MODEL_FEATURES + [TARGET]
+    d = d[[c for c in keep_cols if c in d.columns]].copy()
+
+    # Basic cleaning
     d = d.drop_duplicates()
+    d = d.dropna(subset=[TARGET, "pickup_hour", "pickup_dayofweek", "pickup_month"])
 
-    # Basic filters
     d = d[d["trip_distance"] >= 0]
-    d = d[d["fare_amount"] >= 0]
     d = d[d[TARGET] >= 0]
-    d = d[d["trip_duration_min"].notna()]
-    d = d[d["trip_duration_min"] > 0]
     d = d[d["passenger_count"] > 0]
 
-    # Fill nulls
+    # Fill numeric nulls with median
     for col in d.select_dtypes(include=[np.number]).columns:
         d[col] = d[col].fillna(d[col].median())
 
-    for col in d.select_dtypes(exclude=[np.number]).columns:
-        if d[col].isnull().sum() > 0:
-            mode_val = d[col].mode()
-            d[col] = d[col].fillna(mode_val.iloc[0] if len(mode_val) > 0 else "unknown")
+    # Ensure VendorID exists
+    if "VendorID" not in d.columns:
+        d["VendorID"] = 1
+    d["VendorID"] = d["VendorID"].fillna(1).astype(int)
 
-    # Outlier clipping
-    clip_cols = ["trip_distance", "fare_amount", "tip_amount", "tolls_amount", "total_amount", "trip_duration_min"]
-    for c in clip_cols:
+    # Outlier clipping on key continuous vars
+    for c in ["trip_distance", TARGET]:
         if c in d.columns:
             q1 = d[c].quantile(0.01)
             q99 = d[c].quantile(0.99)
@@ -75,7 +84,8 @@ def main():
     d = preprocess_training_data(df)
     print("Processed shape:", d.shape)
 
-    d_model = pd.get_dummies(d, drop_first=True)
+    # One-hot encode VendorID safely
+    d_model = pd.get_dummies(d, columns=["VendorID"], drop_first=True)
 
     X = d_model.drop(columns=[TARGET])
     y = d_model[TARGET]
@@ -84,7 +94,6 @@ def main():
         X, y, test_size=0.2, random_state=RANDOM_STATE
     )
 
-    # Best params from Day 4
     model = RandomForestRegressor(
         n_estimators=400,
         max_depth=20,
@@ -110,13 +119,16 @@ def main():
 
     # Save feature columns for inference alignment
     features_path = os.path.join(ARTIFACT_DIR, "train_feature_columns.json")
-    with open(features_path, "w") as f:
+    with open(features_path, "w", encoding="utf-8") as f:
         json.dump(X.columns.tolist(), f, indent=2)
 
     # Save metadata
     metadata = {
         "target": TARGET,
         "model_type": "RandomForestRegressor",
+        "model_purpose": "single_prediction_form_compatible",
+        "feature_set": X.columns.tolist(),
+        "base_form_features": MODEL_FEATURES,
         "params": {
             "n_estimators": 400,
             "max_depth": 20,
@@ -129,7 +141,7 @@ def main():
     }
 
     metadata_path = os.path.join(ARTIFACT_DIR, "final_model_metadata.json")
-    with open(metadata_path, "w") as f:
+    with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
 
     print("Saved:", model_path)
