@@ -9,32 +9,17 @@ import streamlit as st
 
 from src.config import Paths
 
-# -----------------------------
-# Page setup
-# -----------------------------
-st.set_page_config(
-    page_title="NYC Taxi Fare Intelligence",
-    page_icon="🚕",
-    layout="wide",
-)
-
+st.set_page_config(page_title="NYC Taxi Fare Intelligence", page_icon="🚕", layout="wide")
 st.title("🚕 NYC Taxi Fare Intelligence")
 st.caption("ML dashboard for analytics, single prediction, and batch scoring")
 
-# -----------------------------
-# Paths and fallback discovery
-# -----------------------------
 paths = Paths()
 
-# Config-defined paths (may or may not exist)
 metrics_path = Path(paths.metrics_path)
 features_path = Path(paths.features_parquet)
-
-# Model artifacts
 model_path = Path("artifacts/final_model.pkl")
 feature_cols_path = Path("artifacts/train_feature_columns.json")
 
-# Fallback locations for metrics/features
 metrics_candidates = [
     metrics_path,
     Path("artifacts/metrics.json"),
@@ -53,16 +38,14 @@ features_candidates = [
 
 def first_existing(candidates):
     for p in candidates:
-        if Path(p).exists():
-            return Path(p)
+        p = Path(p)
+        if p.exists():
+            return p
     return None
 
 metrics_file = first_existing(metrics_candidates)
 features_file = first_existing(features_candidates)
 
-# -----------------------------
-# Cached loaders
-# -----------------------------
 @st.cache_resource
 def load_model(path: Path):
     return joblib.load(path)
@@ -83,14 +66,7 @@ def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFra
             out[col] = 0
     return out[feature_cols]
 
-def build_input_row(
-    passenger_count: int,
-    trip_distance: float,
-    pickup_hour: int,
-    pickup_weekday: int,
-    pickup_month: int,
-    vendor_id: int,
-) -> pd.DataFrame:
+def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id):
     return pd.DataFrame([{
         "passenger_count": passenger_count,
         "trip_distance": trip_distance,
@@ -100,9 +76,6 @@ def build_input_row(
         "VendorID": vendor_id,
     }])
 
-# -----------------------------
-# Load resources safely
-# -----------------------------
 metrics = {}
 if metrics_file:
     try:
@@ -129,9 +102,6 @@ if model_ready:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
-# -----------------------------
-# KPI row
-# -----------------------------
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Model Ready", "Yes ✅" if model_ready else "No ❌")
 k2.metric("RMSE", str(metrics.get("rmse", "N/A")))
@@ -145,14 +115,8 @@ if df is None:
 
 st.markdown("---")
 
-# -----------------------------
-# Tabs
-# -----------------------------
 tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🎯 Single Prediction", "📦 Batch Prediction"])
 
-# -----------------------------
-# Dashboard tab
-# -----------------------------
 with tab1:
     c1, c2 = st.columns(2)
 
@@ -160,7 +124,7 @@ with tab1:
         st.subheader("Model Metrics")
         if metrics:
             st.json(metrics)
-            st.caption(f"Source: `{metrics_file}`")
+            st.caption(f"Source: {metrics_file}")
         else:
             st.write("No metrics JSON found in configured/fallback paths.")
 
@@ -169,7 +133,7 @@ with tab1:
         if df is not None:
             st.dataframe(df.head(10), use_container_width=True)
             st.caption(f"Rows: {len(df):,} | Columns: {df.shape[1]}")
-            st.caption(f"Source: `{features_file}`")
+            st.caption(f"Source: {features_file}")
         else:
             st.write("No feature parquet found in configured/fallback paths.")
 
@@ -190,9 +154,6 @@ with tab1:
         else:
             st.caption("Chart unavailable (missing data/column).")
 
-# -----------------------------
-# Single prediction tab
-# -----------------------------
 with tab2:
     st.subheader("Fare Estimator")
     st.caption("Enter trip details and estimate fare.")
@@ -217,25 +178,16 @@ with tab2:
         if st.button("Predict Fare", type="primary"):
             try:
                 row = build_input_row(
-                    passenger_count=passenger_count,
-                    trip_distance=trip_distance,
-                    pickup_hour=pickup_hour,
-                    pickup_weekday=pickup_weekday,
-                    pickup_month=pickup_month,
-                    vendor_id=vendor_id,
+                    passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id
                 )
                 X = align_to_training_schema(row, feature_cols)
                 pred = float(model.predict(X)[0])
                 pred = max(pred, 0.0)
-
-                st.success(f"Estimated Fare: **${pred:.2f}**")
-                st.caption("Estimate may vary from actual due to traffic, tolls, route changes, and time effects.")
+                st.success(f"Estimated Fare: ${pred:.2f}")
+                st.caption("Estimate may vary due to traffic, tolls, route choice, and real-time conditions.")
             except Exception as e:
                 st.error(f"Prediction failed: {e}")
 
-# -----------------------------
-# Batch prediction tab
-# -----------------------------
 with tab3:
     st.subheader("Batch Prediction (CSV)")
     st.caption("Upload a CSV, generate predictions, and download output.")
@@ -265,9 +217,9 @@ with tab3:
                 else:
                     Xb = align_to_training_schema(batch_df, feature_cols)
                     preds = model.predict(Xb)
-
                     out = batch_df.copy()
                     out["predicted_fare"] = preds
+
                     st.success(f"Predictions generated for {len(out):,} rows.")
                     st.dataframe(out.head(20), use_container_width=True)
 
