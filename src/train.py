@@ -4,7 +4,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from datetime import datetime
+from datetime import datetime, UTC
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
@@ -125,7 +125,7 @@ def main():
         "metrics": {"rmse": float(rmse), "mae": float(mae), "r2": float(r2)},
         "train_rows": int(X_train.shape[0]),
         "test_rows": int(X_test.shape[0]),
-        "created_at": datetime.utcnow().isoformat() + "Z"
+        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z")
     }
 
     metadata_path = os.path.join(ARTIFACT_DIR, "final_model_metadata.json")
