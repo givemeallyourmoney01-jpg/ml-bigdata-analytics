@@ -10,7 +10,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
-DATA_PATH = "data/raw/your_dataset.csv"   # <-- change this
+DATA_PATH = "data/raw/yellow_tripdata_2023-01.csv"   # <-- change this
 ARTIFACT_DIR = "artifacts"
 TARGET = "total_amount"
 SAMPLE_SIZE = 300000
