@@ -85,7 +85,7 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
         "passenger_count": passenger_count,
         "trip_distance": trip_distance,
         "pickup_hour": pickup_hour,
-        "pickup_weekday": pickup_weekday,
+        "pickup_dayofweek": pickup_weekday,
         "pickup_month": pickup_month,
         "VendorID": vendor_id,
     }])
