@@ -75,19 +75,36 @@ def pick_metric(d: dict, keys: list, default="N/A"):
 
 def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
     out = df.copy()
+
+    # Backward compatibility: if raw VendorID is present and model expects VendorID_2
+    if "VendorID" in out.columns and "VendorID_2" in feature_cols and "VendorID_2" not in out.columns:
+        out["VendorID_2"] = (pd.to_numeric(out["VendorID"], errors="coerce").fillna(1).astype(int) == 2).astype(int)
+
+    # Ensure all training columns exist
     for col in feature_cols:
         if col not in out.columns:
             out[col] = 0
-    return out[feature_cols]
+
+    # Keep exact order
+    out = out[feature_cols]
+
+    # Force numeric
+    for col in out.columns:
+        out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
+
+    return out
 
 def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id):
+    # Build both raw and dummy vendor columns for compatibility with different trained schemas
     return pd.DataFrame([{
-        "passenger_count": passenger_count,
-        "trip_distance": trip_distance,
-        "pickup_hour": pickup_hour,
-        "pickup_dayofweek": pickup_weekday,
-        "pickup_month": pickup_month,
-        "VendorID": vendor_id,
+        "passenger_count": float(passenger_count),
+        "trip_distance": float(trip_distance),
+        "pickup_hour": int(pickup_hour),
+        "pickup_dayofweek": int(pickup_weekday),
+        "pickup_weekday": int(pickup_weekday),  # backward compatibility
+        "pickup_month": int(pickup_month),
+        "VendorID": int(vendor_id),
+        "VendorID_2": 1 if int(vendor_id) == 2 else 0,
     }])
 
 # -----------------------------
@@ -222,10 +239,19 @@ with tab2:
                     vendor_id,
                 )
                 X = align_to_training_schema(row, feature_cols)
+
                 pred = float(model.predict(X)[0])
                 pred = max(pred, 0.0)
+
                 st.success(f"Estimated Fare: ${pred:.2f}")
                 st.caption("Estimate may vary due to traffic, tolls, route choice, and real-time conditions.")
+
+                # Optional debug toggle
+                with st.expander("Prediction debug", expanded=False):
+                    st.write("Expected features:", feature_cols)
+                    st.write("Input row:", row)
+                    st.write("Aligned row:", X)
+
             except Exception as e:
                 st.error(f"Prediction failed: {e}")
 
@@ -244,8 +270,12 @@ with tab3:
                 batch_df = pd.read_csv(uploaded)
                 st.dataframe(batch_df.head(10), width="stretch")
 
-                required = ["passenger_count", "trip_distance", "pickup_hour", "pickup_weekday", "pickup_month", "VendorID"]
-                missing = [c for c in required if c not in batch_df.columns]
+                # Accept either pickup_weekday or pickup_dayofweek
+                if "pickup_dayofweek" not in batch_df.columns and "pickup_weekday" in batch_df.columns:
+                    batch_df["pickup_dayofweek"] = batch_df["pickup_weekday"]
+
+                required_any = ["passenger_count", "trip_distance", "pickup_hour", "pickup_month", "VendorID", "pickup_dayofweek"]
+                missing = [c for c in required_any if c not in batch_df.columns]
                 if missing:
                     st.error(f"Missing required columns: {missing}")
                 else:
