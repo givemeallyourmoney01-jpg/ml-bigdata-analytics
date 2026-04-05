@@ -20,9 +20,11 @@ features_path = Path(paths.features_parquet)
 model_path = Path("artifacts/final_model.pkl")
 feature_cols_path = Path("artifacts/train_feature_columns.json")
 
+# ---- Fallback candidates ----
 metrics_candidates = [
     metrics_path,
     Path("artifacts/metrics.json"),
+    Path("artifacts/final_model_metadata.json"),  # added
     Path("metrics.json"),
     Path("outputs/metrics.json"),
     Path("artifacts/model_metrics.json"),
@@ -31,6 +33,8 @@ metrics_candidates = [
 features_candidates = [
     features_path,
     Path("data/processed/features.parquet"),
+    Path("data/processed/day2_sample_clean.csv"),  # added
+    Path("data/processed/day1_sample_clean.csv"),  # added
     Path("artifacts/features.parquet"),
     Path("features.parquet"),
     Path("outputs/features.parquet"),
@@ -56,8 +60,13 @@ def load_json(path: Path):
         return json.load(f)
 
 @st.cache_data
-def load_parquet(path: Path):
-    return pd.read_parquet(path)
+def load_dataset(path: Path):
+    suffix = path.suffix.lower()
+    if suffix == ".parquet":
+        return pd.read_parquet(path)
+    if suffix == ".csv":
+        return pd.read_csv(path)
+    return None
 
 def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
     out = df.copy()
@@ -76,6 +85,13 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
         "VendorID": vendor_id,
     }])
 
+def pick_metric(d: dict, keys: list, default="N/A"):
+    for k in keys:
+        if k in d and d[k] is not None:
+            return d[k]
+    return default
+
+# ---- Load metrics ----
 metrics = {}
 if metrics_file:
     try:
@@ -83,13 +99,15 @@ if metrics_file:
     except Exception:
         metrics = {}
 
+# ---- Load dataset ----
 df = None
 if features_file:
     try:
-        df = load_parquet(features_file)
+        df = load_dataset(features_file)
     except Exception:
         df = None
 
+# ---- Load model ----
 model_ready = model_path.exists() and feature_cols_path.exists()
 model = None
 feature_cols = []
@@ -102,11 +120,16 @@ if model_ready:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
+# ---- KPI values with flexible key names ----
+rmse_val = pick_metric(metrics, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
+mae_val = pick_metric(metrics, ["mae", "test_mae", "best_mae", "val_mae"])
+r2_val = pick_metric(metrics, ["r2", "test_r2", "best_r2", "val_r2"])
+
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Model Ready", "Yes ✅" if model_ready else "No ❌")
-k2.metric("RMSE", str(metrics.get("rmse", "N/A")))
-k3.metric("MAE", str(metrics.get("mae", "N/A")))
-k4.metric("R²", str(metrics.get("r2", "N/A")))
+k2.metric("RMSE", str(rmse_val))
+k3.metric("MAE", str(mae_val))
+k4.metric("R²", str(r2_val))
 
 if not metrics:
     st.info("Metrics unavailable right now. Predictions can still run if model artifacts are present.")
@@ -135,7 +158,7 @@ with tab1:
             st.caption(f"Rows: {len(df):,} | Columns: {df.shape[1]}")
             st.caption(f"Source: {features_file}")
         else:
-            st.write("No feature parquet found in configured/fallback paths.")
+            st.write("No dataset found in configured/fallback paths.")
 
     ch1, ch2 = st.columns(2)
     with ch1:
