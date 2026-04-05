@@ -200,7 +200,7 @@ with tab1:
     with c2:
         st.subheader("Data Snapshot")
         if df is not None:
-            st.dataframe(df.head(10), use_container_width=True)
+            st.dataframe(df.head(10), width="stretch")
             st.caption(f"Rows: {len(df):,} | Columns: {df.shape[1]}")
             st.caption(f"Source: {features_file}")
         else:
@@ -211,7 +211,7 @@ with tab1:
         st.subheader("Pickup Hour Distribution")
         if df is not None and "pickup_hour" in df.columns:
             fig = px.histogram(df, x="pickup_hour", nbins=24, title="Trip Count by Pickup Hour")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.caption("Chart unavailable (missing data/column).")
 
@@ -219,7 +219,7 @@ with tab1:
         st.subheader("Duration Distribution")
         if df is not None and "trip_duration_min" in df.columns:
             fig2 = px.histogram(df, x="trip_duration_min", nbins=80, title="Trip Duration (min)")
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width="stretch")
         else:
             st.caption("Chart unavailable (missing data/column).")
 
@@ -274,7 +274,7 @@ with tab3:
         if uploaded is not None:
             try:
                 batch_df = pd.read_csv(uploaded)
-                st.dataframe(batch_df.head(10), use_container_width=True)
+                st.dataframe(batch_df.head(10), width="stretch")
 
                 required = ["passenger_count", "trip_distance", "pickup_hour", "pickup_weekday", "pickup_month", "VendorID"]
                 missing = [c for c in required if c not in batch_df.columns]
@@ -287,7 +287,7 @@ with tab3:
                     out["predicted_fare"] = preds
 
                     st.success(f"Predictions generated for {len(out):,} rows.")
-                    st.dataframe(out.head(20), use_container_width=True)
+                    st.dataframe(out.head(20), width="stretch")
 
                     st.download_button(
                         label="⬇️ Download predictions CSV",
