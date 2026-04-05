@@ -98,6 +98,25 @@ Final metrics:
 - Built inference flow to load model and generate `predicted_total_amount`
 - Exports predictions to `artifacts/predictions.csv`
 
+### Day 6 Final Polish
+
+- Updated model metadata timestamp generation to timezone-aware UTC:
+  - `datetime.now(UTC).isoformat().replace("+00:00", "Z")`
+- Re-ran training pipeline successfully on `yellow_tripdata_2015-01.csv`
+- Final evaluation metrics:
+  - **RMSE:** 0.351503
+  - **MAE:** 0.026806
+  - **R²:** 0.999041
+- Inference pipeline verified:
+  - `python src/predict.py` generates `artifacts/predictions.csv`
+
+## Reproducibility
+
+```bash
+python src/train.py
+python src/predict.py
+```
+
 ---
 
 ## ▶️ Usage
