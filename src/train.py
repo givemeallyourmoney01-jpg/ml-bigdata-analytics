@@ -13,7 +13,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 DATA_PATH = "data/raw/yellow_tripdata_2015-01.csv"
 ARTIFACT_DIR = "artifacts"
 TARGET = "total_amount"
-SAMPLE_SIZE = 300000
+SAMPLE_SIZE = 200000   # reduce if memory is limited
 RANDOM_STATE = 42
 
 # ONLY features available in Streamlit single prediction form
@@ -60,7 +60,7 @@ def preprocess_training_data(df: pd.DataFrame) -> pd.DataFrame:
         d["VendorID"] = 1
     d["VendorID"] = d["VendorID"].fillna(1).astype(int)
 
-    # Outlier clipping on key continuous vars
+    # Outlier clipping
     for c in ["trip_distance", TARGET]:
         if c in d.columns:
             q1 = d[c].quantile(0.01)
@@ -74,21 +74,42 @@ def main():
     os.makedirs(ARTIFACT_DIR, exist_ok=True)
 
     print(f"Loading data from: {DATA_PATH}")
-    df = pd.read_csv(DATA_PATH)
-    print("Original shape:", df.shape)
 
-    if len(df) > SAMPLE_SIZE:
-        df = df.sample(n=SAMPLE_SIZE, random_state=RANDOM_STATE).copy()
-        print("Sampled shape:", df.shape)
+    usecols = [
+        "tpep_pickup_datetime",
+        "tpep_dropoff_datetime",
+        "passenger_count",
+        "trip_distance",
+        "VendorID",
+        "total_amount",
+    ]
+
+    dtypes = {
+        "passenger_count": "float32",
+        "trip_distance": "float32",
+        "VendorID": "float32",
+        "total_amount": "float32",
+    }
+
+    # Memory-safe loading
+    df = pd.read_csv(
+        DATA_PATH,
+        usecols=usecols,
+        dtype=dtypes,
+        nrows=SAMPLE_SIZE
+    )
+    print("Loaded shape:", df.shape)
 
     d = preprocess_training_data(df)
     print("Processed shape:", d.shape)
 
-    # One-hot encode VendorID safely
+    # One-hot encode VendorID
     d_model = pd.get_dummies(d, columns=["VendorID"], drop_first=True)
 
     X = d_model.drop(columns=[TARGET])
     y = d_model[TARGET]
+
+    print("Training features:", X.columns.tolist())
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=RANDOM_STATE
