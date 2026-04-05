@@ -13,7 +13,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 DATA_PATH = "data/raw/yellow_tripdata_2015-01.csv"
 ARTIFACT_DIR = "artifacts"
 TARGET = "total_amount"
-SAMPLE_SIZE = 200000   # reduce if memory is limited
+SAMPLE_SIZE = 200000
 RANDOM_STATE = 42
 
 # ONLY features available in Streamlit single prediction form
@@ -115,10 +115,11 @@ def main():
         X, y, test_size=0.2, random_state=RANDOM_STATE
     )
 
+    # More stable generalization for dashboard inference
     model = RandomForestRegressor(
-        n_estimators=400,
-        max_depth=20,
-        min_samples_leaf=1,
+        n_estimators=200,
+        max_depth=12,
+        min_samples_leaf=5,
         n_jobs=-1,
         random_state=RANDOM_STATE
     )
@@ -134,16 +135,14 @@ def main():
     print(f"MAE : {mae:.6f}")
     print(f"R²  : {r2:.6f}")
 
-    # Save model
-    model_path = os.path.join(ARTIFACT_DIR, "final_model.pkl")
+    # Save dedicated dashboard artifacts
+    model_path = os.path.join(ARTIFACT_DIR, "dashboard_model.pkl")
     joblib.dump(model, model_path)
 
-    # Save feature columns for inference alignment
-    features_path = os.path.join(ARTIFACT_DIR, "train_feature_columns.json")
+    features_path = os.path.join(ARTIFACT_DIR, "dashboard_feature_columns.json")
     with open(features_path, "w", encoding="utf-8") as f:
         json.dump(X.columns.tolist(), f, indent=2)
 
-    # Save metadata
     metadata = {
         "target": TARGET,
         "model_type": "RandomForestRegressor",
@@ -151,9 +150,9 @@ def main():
         "feature_set": X.columns.tolist(),
         "base_form_features": MODEL_FEATURES,
         "params": {
-            "n_estimators": 400,
-            "max_depth": 20,
-            "min_samples_leaf": 1
+            "n_estimators": 200,
+            "max_depth": 12,
+            "min_samples_leaf": 5
         },
         "metrics": {"rmse": float(rmse), "mae": float(mae), "r2": float(r2)},
         "train_rows": int(X_train.shape[0]),
@@ -161,7 +160,7 @@ def main():
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z")
     }
 
-    metadata_path = os.path.join(ARTIFACT_DIR, "final_model_metadata.json")
+    metadata_path = os.path.join(ARTIFACT_DIR, "dashboard_model_metadata.json")
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
 
