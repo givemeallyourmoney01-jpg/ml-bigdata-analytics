@@ -16,10 +16,11 @@ st.caption("ML dashboard for analytics, single prediction, and batch scoring")
 # -----------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent  # repo root
 
-model_path = BASE_DIR / "artifacts" / "final_model.pkl"
-feature_cols_path = BASE_DIR / "artifacts" / "train_feature_columns.json"
+# ✅ use dedicated dashboard artifacts
+model_path = BASE_DIR / "artifacts" / "dashboard_model.pkl"
+feature_cols_path = BASE_DIR / "artifacts" / "dashboard_feature_columns.json"
+metrics_file = BASE_DIR / "artifacts" / "dashboard_model_metadata.json"
 
-metrics_file = BASE_DIR / "artifacts" / "final_model_metadata.json"
 features_file = BASE_DIR / "data" / "processed" / "day2_sample_clean.csv"
 
 if not metrics_file.exists():
@@ -79,7 +80,6 @@ def pick_metric(d: dict, keys: list, default="N/A"):
 def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
     out = df.copy()
 
-    # If model expects VendorID_2, derive from VendorID if needed
     if "VendorID_2" in feature_cols and "VendorID_2" not in out.columns:
         if "VendorID" in out.columns:
             out["VendorID_2"] = (
@@ -88,14 +88,12 @@ def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFra
         else:
             out["VendorID_2"] = 0
 
-    # Ensure all required columns exist
     for col in feature_cols:
         if col not in out.columns:
             out[col] = 0
 
     out = out[feature_cols]
 
-    # numeric coercion
     for col in out.columns:
         out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
 
@@ -107,7 +105,7 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
         "trip_distance": float(trip_distance),
         "pickup_hour": int(pickup_hour),
         "pickup_dayofweek": int(pickup_weekday),
-        "pickup_weekday": int(pickup_weekday),  # compatibility
+        "pickup_weekday": int(pickup_weekday),
         "pickup_month": int(pickup_month),
         "VendorID": int(vendor_id),
         "VendorID_2": 1 if int(vendor_id) == 2 else 0,
@@ -142,7 +140,6 @@ if model_ready:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
-# Supports nested and flat metrics JSON
 metrics_block = metrics.get("metrics", {}) if isinstance(metrics, dict) else {}
 
 rmse_val = pick_metric(metrics_block, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
@@ -197,7 +194,7 @@ with tab2:
     st.caption("Enter trip details and estimate fare.")
 
     if not model_ready:
-        st.warning("Prediction unavailable. Ensure artifacts/final_model.pkl and train_feature_columns.json exist.")
+        st.warning("Prediction unavailable. Ensure dashboard artifacts exist in /artifacts.")
     else:
         a, b, c = st.columns(3)
         with a:
@@ -219,16 +216,6 @@ with tab2:
 
             st.success(f"Estimated Fare: ${pred:.2f}")
             st.caption("Estimate may vary due to traffic, tolls, route choice, and real-time conditions.")
-
-            with st.expander("Prediction debug", expanded=True):
-                st.write("Model path:", str(model_path))
-                st.write("Model mtime:", datetime.fromtimestamp(model_path.stat().st_mtime))
-                st.write("Feature columns path:", str(feature_cols_path))
-                st.write("Expected features:", feature_cols)
-                st.write("Input row:", row.to_dict(orient="records")[0])
-                st.write("Aligned row:", X.to_dict(orient="records")[0])
-                st.write("Non-zero feature count:", int((X.iloc[0] != 0).sum()))
-                st.write("Raw prediction:", raw_pred)
 
 with tab3:
     st.subheader("Batch Prediction (CSV)")
