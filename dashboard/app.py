@@ -13,38 +13,45 @@ st.set_page_config(page_title="NYC Taxi Fare Intelligence", page_icon="🚕", la
 st.title("🚕 NYC Taxi Fare Intelligence")
 st.caption("ML dashboard for analytics, single prediction, and batch scoring")
 
+# --- robust base dir ---
+# dashboard/app.py -> repo root is parent of "dashboard"
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 paths = Paths()
 
-metrics_path = Path(paths.metrics_path)
-features_path = Path(paths.features_parquet)
-model_path = Path("artifacts/final_model.pkl")
-feature_cols_path = Path("artifacts/train_feature_columns.json")
+# config paths may be relative; normalize to BASE_DIR if needed
+raw_metrics_path = Path(paths.metrics_path)
+raw_features_path = Path(paths.features_parquet)
 
-# ---- Fallback candidates ----
+metrics_path = raw_metrics_path if raw_metrics_path.is_absolute() else (BASE_DIR / raw_metrics_path)
+features_path = raw_features_path if raw_features_path.is_absolute() else (BASE_DIR / raw_features_path)
+
+model_path = BASE_DIR / "artifacts/final_model.pkl"
+feature_cols_path = BASE_DIR / "artifacts/train_feature_columns.json"
+
 metrics_candidates = [
     metrics_path,
-    Path("artifacts/metrics.json"),
-    Path("artifacts/final_model_metadata.json"),  # added
-    Path("metrics.json"),
-    Path("outputs/metrics.json"),
-    Path("artifacts/model_metrics.json"),
+    BASE_DIR / "artifacts/metrics.json",
+    BASE_DIR / "artifacts/final_model_metadata.json",
+    BASE_DIR / "metrics.json",
+    BASE_DIR / "outputs/metrics.json",
+    BASE_DIR / "artifacts/model_metrics.json",
 ]
 
 features_candidates = [
     features_path,
-    Path("data/processed/features.parquet"),
-    Path("data/processed/day2_sample_clean.csv"),  # added
-    Path("data/processed/day1_sample_clean.csv"),  # added
-    Path("artifacts/features.parquet"),
-    Path("features.parquet"),
-    Path("outputs/features.parquet"),
+    BASE_DIR / "data/processed/features.parquet",
+    BASE_DIR / "data/processed/day2_sample_clean.csv",
+    BASE_DIR / "data/processed/day1_sample_clean.csv",
+    BASE_DIR / "artifacts/features.parquet",
+    BASE_DIR / "features.parquet",
+    BASE_DIR / "outputs/features.parquet",
 ]
 
 def first_existing(candidates):
     for p in candidates:
-        p = Path(p)
-        if p.exists():
-            return p
+        if Path(p).exists():
+            return Path(p)
     return None
 
 metrics_file = first_existing(metrics_candidates)
@@ -61,10 +68,9 @@ def load_json(path: Path):
 
 @st.cache_data
 def load_dataset(path: Path):
-    suffix = path.suffix.lower()
-    if suffix == ".parquet":
+    if path.suffix.lower() == ".parquet":
         return pd.read_parquet(path)
-    if suffix == ".csv":
+    if path.suffix.lower() == ".csv":
         return pd.read_csv(path)
     return None
 
@@ -91,7 +97,6 @@ def pick_metric(d: dict, keys: list, default="N/A"):
             return d[k]
     return default
 
-# ---- Load metrics ----
 metrics = {}
 if metrics_file:
     try:
@@ -99,7 +104,6 @@ if metrics_file:
     except Exception:
         metrics = {}
 
-# ---- Load dataset ----
 df = None
 if features_file:
     try:
@@ -107,7 +111,6 @@ if features_file:
     except Exception:
         df = None
 
-# ---- Load model ----
 model_ready = model_path.exists() and feature_cols_path.exists()
 model = None
 feature_cols = []
@@ -120,7 +123,6 @@ if model_ready:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
-# ---- KPI values with flexible key names ----
 rmse_val = pick_metric(metrics, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
 mae_val = pick_metric(metrics, ["mae", "test_mae", "best_mae", "val_mae"])
 r2_val = pick_metric(metrics, ["r2", "test_r2", "best_r2", "val_r2"])
@@ -130,6 +132,14 @@ k1.metric("Model Ready", "Yes ✅" if model_ready else "No ❌")
 k2.metric("RMSE", str(rmse_val))
 k3.metric("MAE", str(mae_val))
 k4.metric("R²", str(r2_val))
+
+# Debug panel (temporary)
+with st.expander("Debug paths (temporary)", expanded=False):
+    st.write("BASE_DIR:", str(BASE_DIR))
+    st.write("metrics_file:", str(metrics_file) if metrics_file else "None")
+    st.write("features_file:", str(features_file) if features_file else "None")
+    st.write("model_path exists:", model_path.exists())
+    st.write("feature_cols_path exists:", feature_cols_path.exists())
 
 if not metrics:
     st.info("Metrics unavailable right now. Predictions can still run if model artifacts are present.")
@@ -158,7 +168,7 @@ with tab1:
             st.caption(f"Rows: {len(df):,} | Columns: {df.shape[1]}")
             st.caption(f"Source: {features_file}")
         else:
-            st.write("No dataset found in configured/fallback paths.")
+            st.write("No feature dataset found in configured/fallback paths.")
 
     ch1, ch2 = st.columns(2)
     with ch1:
@@ -200,9 +210,7 @@ with tab2:
 
         if st.button("Predict Fare", type="primary"):
             try:
-                row = build_input_row(
-                    passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id
-                )
+                row = build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id)
                 X = align_to_training_schema(row, feature_cols)
                 pred = float(model.predict(X)[0])
                 pred = max(pred, 0.0)
@@ -226,14 +234,7 @@ with tab3:
                 batch_df = pd.read_csv(uploaded)
                 st.dataframe(batch_df.head(10), use_container_width=True)
 
-                required = [
-                    "passenger_count",
-                    "trip_distance",
-                    "pickup_hour",
-                    "pickup_weekday",
-                    "pickup_month",
-                    "VendorID",
-                ]
+                required = ["passenger_count", "trip_distance", "pickup_hour", "pickup_weekday", "pickup_month", "VendorID"]
                 missing = [c for c in required if c not in batch_df.columns]
                 if missing:
                     st.error(f"Missing required columns: {missing}")
