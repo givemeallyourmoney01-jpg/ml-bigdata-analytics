@@ -13,39 +13,41 @@ st.set_page_config(page_title="NYC Taxi Fare Intelligence", page_icon="🚕", la
 st.title("🚕 NYC Taxi Fare Intelligence")
 st.caption("ML dashboard for analytics, single prediction, and batch scoring")
 
-# --- robust base dir ---
-# dashboard/app.py -> repo root is parent of "dashboard"
-BASE_DIR = Path(__file__).resolve().parent.parent
+# -----------------------------
+# Base paths
+# -----------------------------
+BASE_DIR = Path(__file__).resolve().parent.parent  # repo root
 
 paths = Paths()
 
-# config paths may be relative; normalize to BASE_DIR if needed
-raw_metrics_path = Path(paths.metrics_path)
-raw_features_path = Path(paths.features_parquet)
+def to_abs(p: Path) -> Path:
+    p = Path(p)
+    return p if p.is_absolute() else (BASE_DIR / p)
 
-metrics_path = raw_metrics_path if raw_metrics_path.is_absolute() else (BASE_DIR / raw_metrics_path)
-features_path = raw_features_path if raw_features_path.is_absolute() else (BASE_DIR / raw_features_path)
+raw_metrics_path = to_abs(Path(paths.metrics_path))
+raw_features_path = to_abs(Path(paths.features_parquet))
 
-model_path = BASE_DIR / "artifacts/final_model.pkl"
-feature_cols_path = BASE_DIR / "artifacts/train_feature_columns.json"
+model_path = BASE_DIR / "artifacts" / "final_model.pkl"
+feature_cols_path = BASE_DIR / "artifacts" / "train_feature_columns.json"
 
+# Force known-good files first (from your repo listing)
 metrics_candidates = [
-    metrics_path,
-    BASE_DIR / "artifacts/metrics.json",
-    BASE_DIR / "artifacts/final_model_metadata.json",
+    BASE_DIR / "artifacts" / "final_model_metadata.json",
+    BASE_DIR / "artifacts" / "metrics.json",
+    raw_metrics_path,
     BASE_DIR / "metrics.json",
-    BASE_DIR / "outputs/metrics.json",
-    BASE_DIR / "artifacts/model_metrics.json",
+    BASE_DIR / "outputs" / "metrics.json",
+    BASE_DIR / "artifacts" / "model_metrics.json",
 ]
 
 features_candidates = [
-    features_path,
-    BASE_DIR / "data/processed/features.parquet",
-    BASE_DIR / "data/processed/day2_sample_clean.csv",
-    BASE_DIR / "data/processed/day1_sample_clean.csv",
-    BASE_DIR / "artifacts/features.parquet",
+    BASE_DIR / "data" / "processed" / "day2_sample_clean.csv",
+    BASE_DIR / "data" / "processed" / "day1_sample_clean.csv",
+    BASE_DIR / "data" / "processed" / "features.parquet",
+    raw_features_path,
+    BASE_DIR / "artifacts" / "features.parquet",
     BASE_DIR / "features.parquet",
-    BASE_DIR / "outputs/features.parquet",
+    BASE_DIR / "outputs" / "features.parquet",
 ]
 
 def first_existing(candidates):
@@ -57,6 +59,9 @@ def first_existing(candidates):
 metrics_file = first_existing(metrics_candidates)
 features_file = first_existing(features_candidates)
 
+# -----------------------------
+# Loaders
+# -----------------------------
 @st.cache_resource
 def load_model(path: Path):
     return joblib.load(path)
@@ -97,6 +102,9 @@ def pick_metric(d: dict, keys: list, default="N/A"):
             return d[k]
     return default
 
+# -----------------------------
+# Load resources
+# -----------------------------
 metrics = {}
 if metrics_file:
     try:
@@ -123,17 +131,21 @@ if model_ready:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
+# Flexible metric keys
 rmse_val = pick_metric(metrics, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
 mae_val = pick_metric(metrics, ["mae", "test_mae", "best_mae", "val_mae"])
 r2_val = pick_metric(metrics, ["r2", "test_r2", "best_r2", "val_r2"])
 
+# -----------------------------
+# KPI row
+# -----------------------------
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Model Ready", "Yes ✅" if model_ready else "No ❌")
 k2.metric("RMSE", str(rmse_val))
 k3.metric("MAE", str(mae_val))
 k4.metric("R²", str(r2_val))
 
-# Debug panel (temporary)
+# Temp debug (remove later)
 with st.expander("Debug paths (temporary)", expanded=False):
     st.write("BASE_DIR:", str(BASE_DIR))
     st.write("metrics_file:", str(metrics_file) if metrics_file else "None")
