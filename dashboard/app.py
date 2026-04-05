@@ -24,46 +24,49 @@ def to_abs(p: Path) -> Path:
     p = Path(p)
     return p if p.is_absolute() else (BASE_DIR / p)
 
+# Optional config-derived paths (kept for compatibility)
 raw_metrics_path = to_abs(Path(paths.metrics_path))
 raw_features_path = to_abs(Path(paths.features_parquet))
 
 model_path = BASE_DIR / "artifacts" / "final_model.pkl"
 feature_cols_path = BASE_DIR / "artifacts" / "train_feature_columns.json"
 
-# Force known-good files first (from your repo listing)
-metrics_candidates = [
-    BASE_DIR / "artifacts" / "final_model_metadata.json",
-    BASE_DIR / "artifacts" / "metrics.json",
-    raw_metrics_path,
-    BASE_DIR / "metrics.json",
-    BASE_DIR / "outputs" / "metrics.json",
-    BASE_DIR / "artifacts" / "model_metrics.json",
-]
-
-features_candidates = [
-    BASE_DIR / "data" / "processed" / "day2_sample_clean.csv",
-    BASE_DIR / "data" / "processed" / "day1_sample_clean.csv",
-    BASE_DIR / "data" / "processed" / "features.parquet",
-    raw_features_path,
-    BASE_DIR / "artifacts" / "features.parquet",
-    BASE_DIR / "features.parquet",
-    BASE_DIR / "outputs" / "features.parquet",
-]
-
-def first_existing(candidates):
-    for p in candidates:
-        if Path(p).exists():
-            return Path(p)
-    return None
-
-# HARD FORCE (based on your verified files)
+# -----------------------------
+# HARD FORCE known-good files
+# -----------------------------
 metrics_file = BASE_DIR / "artifacts" / "final_model_metadata.json"
 features_file = BASE_DIR / "data" / "processed" / "day2_sample_clean.csv"
 
 if not metrics_file.exists():
-    metrics_file = None
+    # fallback chain
+    for p in [
+        BASE_DIR / "artifacts" / "metrics.json",
+        raw_metrics_path,
+        BASE_DIR / "metrics.json",
+        BASE_DIR / "outputs" / "metrics.json",
+        BASE_DIR / "artifacts" / "model_metrics.json",
+    ]:
+        if p.exists():
+            metrics_file = p
+            break
+    else:
+        metrics_file = None
+
 if not features_file.exists():
-    features_file = None
+    # fallback chain
+    for p in [
+        BASE_DIR / "data" / "processed" / "day1_sample_clean.csv",
+        BASE_DIR / "data" / "processed" / "features.parquet",
+        raw_features_path,
+        BASE_DIR / "artifacts" / "features.parquet",
+        BASE_DIR / "features.parquet",
+        BASE_DIR / "outputs" / "features.parquet",
+    ]:
+        if p.exists():
+            features_file = p
+            break
+    else:
+        features_file = None
 
 # -----------------------------
 # Loaders
@@ -72,12 +75,11 @@ if not features_file.exists():
 def load_model(path: Path):
     return joblib.load(path)
 
-@st.cache_data
+# NOTE: no cache here to avoid stale "not found" state
 def load_json(path: Path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-@st.cache_data
 def load_dataset(path: Path):
     if path.suffix.lower() == ".parquet":
         return pd.read_parquet(path)
@@ -137,7 +139,9 @@ if model_ready:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
-# Flexible metric keys
+# -----------------------------
+# Metric extraction (supports nested metrics)
+# -----------------------------
 metrics_block = metrics.get("metrics", {}) if isinstance(metrics, dict) else {}
 
 rmse_val = pick_metric(metrics_block, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
@@ -157,12 +161,13 @@ if r2_val == "N/A":
 # -----------------------------
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Model Ready", "Yes ✅" if model_ready else "No ❌")
-k2.metric("RMSE", str(rmse_val))
-k3.metric("MAE", str(mae_val))
-k4.metric("R²", str(r2_val))
+k2.metric("RMSE", f"{float(rmse_val):.4f}" if rmse_val != "N/A" else "N/A")
+k3.metric("MAE", f"{float(mae_val):.4f}" if mae_val != "N/A" else "N/A")
+k4.metric("R²", f"{float(r2_val):.4f}" if r2_val != "N/A" else "N/A")
 
-# Temp debug (remove later)
+# Debug panel (remove later if you want)
 with st.expander("Debug paths (temporary)", expanded=False):
+    st.write("APP FILE:", str(Path(__file__).resolve()))
     st.write("BASE_DIR:", str(BASE_DIR))
     st.write("metrics_file:", str(metrics_file) if metrics_file else "None")
     st.write("features_file:", str(features_file) if features_file else "None")
@@ -178,6 +183,9 @@ st.markdown("---")
 
 tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🎯 Single Prediction", "📦 Batch Prediction"])
 
+# -----------------------------
+# Dashboard tab
+# -----------------------------
 with tab1:
     c1, c2 = st.columns(2)
 
@@ -215,6 +223,9 @@ with tab1:
         else:
             st.caption("Chart unavailable (missing data/column).")
 
+# -----------------------------
+# Single prediction tab
+# -----------------------------
 with tab2:
     st.subheader("Fare Estimator")
     st.caption("Enter trip details and estimate fare.")
@@ -247,6 +258,9 @@ with tab2:
             except Exception as e:
                 st.error(f"Prediction failed: {e}")
 
+# -----------------------------
+# Batch prediction tab
+# -----------------------------
 with tab3:
     st.subheader("Batch Prediction (CSV)")
     st.caption("Upload a CSV, generate predictions, and download output.")
