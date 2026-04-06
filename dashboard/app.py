@@ -18,66 +18,155 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Premium Styling
+# Premium Styling v2
 # -----------------------------
 st.markdown(
     """
     <style>
-        .main {
-            background: linear-gradient(180deg, #0f1117 0%, #111827 100%);
-        }
-        .block-container {
-            padding-top: 1.5rem;
-            padding-bottom: 2rem;
-            max-width: 1200px;
-        }
-        .hero-card {
-            background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #0b3b5a 100%);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 18px;
-            padding: 20px 24px;
-            margin-bottom: 14px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
-        }
-        .hero-title {
-            font-size: 1.8rem;
-            font-weight: 800;
-            margin: 0;
-            color: #f9fafb;
-            letter-spacing: 0.2px;
-        }
-        .hero-sub {
-            margin-top: 6px;
-            color: #d1d5db;
-            font-size: 0.95rem;
-        }
-        .pill {
-            display: inline-block;
-            background: rgba(59,130,246,0.15);
-            color: #bfdbfe;
-            border: 1px solid rgba(59,130,246,0.35);
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            margin-right: 8px;
-        }
-        div[data-testid="stMetric"] {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 12px 14px;
-        }
-        .section-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 14px;
-        }
-        .stButton > button {
-            border-radius: 12px !important;
-            font-weight: 600 !important;
-        }
+      :root {
+        --bg: #070b14;
+        --card: rgba(255,255,255,0.05);
+        --border: rgba(255,255,255,0.12);
+        --text: #f3f7ff;
+        --muted: #c3cde0;
+        --accent: #5cc8ff;
+        --accent2: #7c5cff;
+      }
+
+      .stApp {
+        background:
+          radial-gradient(circle at 15% -10%, rgba(92,200,255,0.18), transparent 40%),
+          radial-gradient(circle at 85% -20%, rgba(124,92,255,0.20), transparent 35%),
+          linear-gradient(180deg, #05070d 0%, #0a1020 45%, #0b1222 100%);
+      }
+
+      .block-container {
+        padding-top: 1.2rem;
+        padding-bottom: 2.2rem;
+        max-width: 1220px;
+      }
+
+      .premium-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+        padding: 26px 26px 20px 26px;
+        margin-bottom: 16px;
+        background:
+          linear-gradient(135deg, rgba(12,20,40,0.96), rgba(17,28,56,0.86)),
+          radial-gradient(circle at 90% 0%, rgba(92,200,255,0.25), transparent 30%);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+      }
+
+      .premium-hero::after{
+        content: "";
+        position: absolute;
+        right: -50px;
+        top: -50px;
+        width: 220px;
+        height: 220px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(92,200,255,0.25), transparent 60%);
+        pointer-events: none;
+      }
+
+      .hero-title {
+        font-size: 2rem;
+        font-weight: 800;
+        margin: 0;
+        color: var(--text);
+        letter-spacing: 0.2px;
+      }
+
+      .hero-sub {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+
+      .chip {
+        display: inline-block;
+        margin-top: 12px;
+        margin-right: 8px;
+        padding: 6px 11px;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        color: #dff4ff;
+        border: 1px solid rgba(92,200,255,0.35);
+        background: rgba(92,200,255,0.14);
+      }
+
+      div[data-testid="stMetric"] {
+        background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px 14px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+      }
+
+      div[data-testid="stMetricLabel"] {
+        color: #c8d5ee !important;
+      }
+
+      div[data-testid="stMetricValue"] {
+        color: #ffffff !important;
+        font-weight: 750 !important;
+      }
+
+      .section-card {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+      }
+
+      .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+      }
+
+      .stTabs [data-baseweb="tab"] {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 8px 14px;
+      }
+
+      .stTabs [aria-selected="true"] {
+        background: linear-gradient(90deg, rgba(92,200,255,0.18), rgba(124,92,255,0.18)) !important;
+        border: 1px solid rgba(124,92,255,0.5) !important;
+      }
+
+      .stButton > button, .stDownloadButton > button {
+        border-radius: 12px !important;
+        border: 1px solid rgba(92,200,255,0.45) !important;
+        background: linear-gradient(90deg, #1b7cb8, #5b46d8) !important;
+        color: white !important;
+        font-weight: 700 !important;
+      }
+
+      .stButton > button:hover, .stDownloadButton > button:hover {
+        filter: brightness(1.07);
+      }
     </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# -----------------------------
+# Premium Header v2
+# -----------------------------
+st.markdown(
+    """
+    <div class="premium-hero">
+      <div class="hero-title">🚕 NYC Taxi Fare Intelligence</div>
+      <div class="hero-sub">Premium analytics cockpit for live fare prediction and batch scoring.</div>
+      <span class="chip">Live Inference</span>
+      <span class="chip">Interactive Analytics</span>
+      <span class="chip">Enterprise Batch Scoring</span>
+    </div>
     """,
     unsafe_allow_html=True,
 )
