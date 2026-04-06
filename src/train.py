@@ -6,7 +6,7 @@ import pandas as pd
 
 from datetime import datetime, UTC
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
@@ -115,15 +115,8 @@ def main():
         X, y, test_size=0.2, random_state=RANDOM_STATE
     )
 
-    # More stable generalization for dashboard inference
-    model = RandomForestRegressor(
-        n_estimators=200,
-        max_depth=12,
-        min_samples_leaf=5,
-        n_jobs=-1,
-        random_state=RANDOM_STATE
-    )
-
+    # Linear model => strong sensitivity to trip_distance changes
+    model = LinearRegression()
     model.fit(X_train, y_train)
     preds = model.predict(X_test)
 
@@ -145,15 +138,10 @@ def main():
 
     metadata = {
         "target": TARGET,
-        "model_type": "RandomForestRegressor",
+        "model_type": "LinearRegression",
         "model_purpose": "single_prediction_form_compatible",
         "feature_set": X.columns.tolist(),
         "base_form_features": MODEL_FEATURES,
-        "params": {
-            "n_estimators": 200,
-            "max_depth": 12,
-            "min_samples_leaf": 5
-        },
         "metrics": {"rmse": float(rmse), "mae": float(mae), "r2": float(r2)},
         "train_rows": int(X_train.shape[0]),
         "test_rows": int(X_test.shape[0]),
