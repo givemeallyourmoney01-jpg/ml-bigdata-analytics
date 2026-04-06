@@ -23,18 +23,9 @@ metrics_file = BASE_DIR / "artifacts" / "dashboard_model_metadata.json"
 
 features_file = BASE_DIR / "data" / "processed" / "day2_sample_clean.csv"
 
+# Strict: use ONLY dashboard metadata
 if not metrics_file.exists():
-    for p in [
-        BASE_DIR / "artifacts" / "metrics.json",
-        BASE_DIR / "metrics.json",
-        BASE_DIR / "outputs" / "metrics.json",
-        BASE_DIR / "artifacts" / "model_metrics.json",
-    ]:
-        if p.exists():
-            metrics_file = p
-            break
-    else:
-        metrics_file = None
+    metrics_file = None
 
 if not features_file.exists():
     for p in [
