@@ -51,7 +51,7 @@ if not features_file.exists():
         features_file = None
 
 # -----------------------------
-# Loaders (cache-busted by file mtime)
+# Loaders (non-cached)
 # -----------------------------
 def load_model(path: Path):
     return joblib.load(path)
@@ -116,7 +116,7 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
 metrics = {}
 if metrics_file:
     try:
-        metrics = load_json(metrics_file, metrics_file.stat().st_mtime)
+        metrics = load_json(metrics_file)
     except Exception:
         metrics = {}
 
@@ -133,8 +133,8 @@ feature_cols = []
 
 if model_ready:
     try:
-        model = load_model(model_path, model_path.stat().st_mtime)
-        feature_cols = load_json(feature_cols_path, feature_cols_path.stat().st_mtime)
+        model = load_model(model_path)
+        feature_cols = load_json(feature_cols_path)
     except Exception as e:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
@@ -249,7 +249,12 @@ with tab2:
                 st.success(f"Estimated Fare: ${pred:.2f}")
                 st.caption("Estimate may vary due to traffic, tolls, route choice, and real-time conditions.")
 
-                # Debug panel (keep for now; remove later if you want)
+                # requested debug lines
+                st.write("Using model:", model.__class__.__name__)
+                st.write("Aligned trip_distance:", X.iloc[0].get("trip_distance", "MISSING"))
+                st.write("Raw pred:", raw_pred)
+
+                # Debug panel
                 with st.expander("Prediction debug", expanded=True):
                     st.write("Model path:", str(model_path))
                     st.write("Model exists:", model_path.exists())
@@ -269,8 +274,6 @@ with tab2:
                         st.write("trip_distance used:", float(X.iloc[0]["trip_distance"]))
                     else:
                         st.write("trip_distance used:", "MISSING in aligned features")
-
-                    st.write("Raw prediction:", raw_pred)
 
             except Exception as e:
                 st.error(f"Prediction failed: {e}")
