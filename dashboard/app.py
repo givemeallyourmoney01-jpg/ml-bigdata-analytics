@@ -80,6 +80,7 @@ def pick_metric(d: dict, keys: list, default="N/A"):
 def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
     out = df.copy()
 
+    # If model expects VendorID_2, derive from VendorID if needed
     if "VendorID_2" in feature_cols and "VendorID_2" not in out.columns:
         if "VendorID" in out.columns:
             out["VendorID_2"] = (
@@ -88,12 +89,14 @@ def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFra
         else:
             out["VendorID_2"] = 0
 
+    # Ensure all required columns exist
     for col in feature_cols:
         if col not in out.columns:
             out[col] = 0
 
     out = out[feature_cols]
 
+    # numeric coercion
     for col in out.columns:
         out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
 
@@ -105,7 +108,7 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
         "trip_distance": float(trip_distance),
         "pickup_hour": int(pickup_hour),
         "pickup_dayofweek": int(pickup_weekday),
-        "pickup_weekday": int(pickup_weekday),
+        "pickup_weekday": int(pickup_weekday),  # compatibility
         "pickup_month": int(pickup_month),
         "VendorID": int(vendor_id),
         "VendorID_2": 1 if int(vendor_id) == 2 else 0,
@@ -140,6 +143,7 @@ if model_ready:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
+# Supports nested and flat metrics JSON
 metrics_block = metrics.get("metrics", {}) if isinstance(metrics, dict) else {}
 
 rmse_val = pick_metric(metrics_block, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
@@ -169,10 +173,12 @@ if df is None:
     st.info("Feature dataset unavailable right now. Analytics charts may be limited.")
 
 st.markdown("---")
+
 tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🎯 Single Prediction", "📦 Batch Prediction"])
 
 with tab1:
     c1, c2 = st.columns(2)
+
     with c1:
         st.subheader("Model Metrics")
         if metrics:
@@ -180,6 +186,7 @@ with tab1:
             st.caption(f"Source: {metrics_file}")
         else:
             st.write("No metrics JSON found in configured/fallback paths.")
+
     with c2:
         st.subheader("Data Snapshot")
         if df is not None:
@@ -189,6 +196,24 @@ with tab1:
         else:
             st.write("No feature dataset found in configured/fallback paths.")
 
+    ch1, ch2 = st.columns(2)
+
+    with ch1:
+        st.subheader("Pickup Hour Distribution")
+        if df is not None and "pickup_hour" in df.columns:
+            fig = px.histogram(df, x="pickup_hour", nbins=24, title="Trip Count by Pickup Hour")
+            st.plotly_chart(fig, width="stretch")
+        else:
+            st.caption("Chart unavailable (missing data/column).")
+
+    with ch2:
+        st.subheader("Duration Distribution")
+        if df is not None and "trip_duration_min" in df.columns:
+            fig2 = px.histogram(df, x="trip_duration_min", nbins=80, title="Trip Duration (min)")
+            st.plotly_chart(fig2, width="stretch")
+        else:
+            st.caption("Chart unavailable (missing data/column).")
+
 with tab2:
     st.subheader("Fare Estimator")
     st.caption("Enter trip details and estimate fare.")
@@ -197,25 +222,62 @@ with tab2:
         st.warning("Prediction unavailable. Ensure dashboard artifacts exist in /artifacts.")
     else:
         a, b, c = st.columns(3)
+
         with a:
             passenger_count = st.number_input("Passenger Count", min_value=1, max_value=8, value=1, step=1)
             trip_distance = st.number_input("Trip Distance (miles)", min_value=0.1, max_value=100.0, value=2.5, step=0.1)
+
         with b:
             pickup_hour = st.slider("Pickup Hour", min_value=0, max_value=23, value=14)
             pickup_weekday = st.slider("Pickup Weekday (0=Mon, 6=Sun)", min_value=0, max_value=6, value=datetime.now().weekday())
+
         with c:
             pickup_month = st.slider("Pickup Month", min_value=1, max_value=12, value=datetime.now().month)
             vendor_id = st.selectbox("Vendor ID", options=[1, 2], index=0)
 
         if st.button("Predict Fare", type="primary"):
-            row = build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id)
-            X = align_to_training_schema(row, feature_cols)
+            try:
+                row = build_input_row(
+                    passenger_count,
+                    trip_distance,
+                    pickup_hour,
+                    pickup_weekday,
+                    pickup_month,
+                    vendor_id,
+                )
+                X = align_to_training_schema(row, feature_cols)
 
-            raw_pred = float(model.predict(X)[0])
-            pred = max(raw_pred, 0.0)
+                raw_pred = float(model.predict(X)[0])
+                pred = max(raw_pred, 0.0)
 
-            st.success(f"Estimated Fare: ${pred:.2f}")
-            st.caption("Estimate may vary due to traffic, tolls, route choice, and real-time conditions.")
+                st.success(f"Estimated Fare: ${pred:.2f}")
+                st.caption("Estimate may vary due to traffic, tolls, route choice, and real-time conditions.")
+
+                # Debug panel (keep for now; remove later if you want)
+                with st.expander("Prediction debug", expanded=True):
+                    st.write("Model path:", str(model_path))
+                    st.write("Model exists:", model_path.exists())
+                    if model_path.exists():
+                        st.write("Model mtime:", datetime.fromtimestamp(model_path.stat().st_mtime))
+
+                    st.write("Feature columns path:", str(feature_cols_path))
+                    st.write("Feature columns exists:", feature_cols_path.exists())
+                    if feature_cols_path.exists():
+                        st.write("Feature columns mtime:", datetime.fromtimestamp(feature_cols_path.stat().st_mtime))
+
+                    st.write("Loaded feature cols:", feature_cols)
+                    st.write("Input row:", row.to_dict(orient="records")[0])
+                    st.write("Aligned row:", X.to_dict(orient="records")[0])
+
+                    if "trip_distance" in X.columns:
+                        st.write("trip_distance used:", float(X.iloc[0]["trip_distance"]))
+                    else:
+                        st.write("trip_distance used:", "MISSING in aligned features")
+
+                    st.write("Raw prediction:", raw_pred)
+
+            except Exception as e:
+                st.error(f"Prediction failed: {e}")
 
 with tab3:
     st.subheader("Batch Prediction (CSV)")
@@ -232,6 +294,7 @@ with tab3:
                 batch_df = pd.read_csv(uploaded)
                 st.dataframe(batch_df.head(10), width="stretch")
 
+                # Accept either pickup_weekday or pickup_dayofweek
                 if "pickup_dayofweek" not in batch_df.columns and "pickup_weekday" in batch_df.columns:
                     batch_df["pickup_dayofweek"] = batch_df["pickup_weekday"]
 
