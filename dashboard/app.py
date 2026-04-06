@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 from datetime import datetime
 
@@ -12,7 +12,11 @@ st.title("🚕 NYC Taxi Fare Intelligence")
 st.caption("ML dashboard for analytics, single prediction, and batch scoring")
 
 # -----------------------------
+<<<<<<< HEAD
 # Paths (hard-set to avoid path ambiguity)
+=======
+# Paths (hard-set for reliability)
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
 # -----------------------------
 BASE_DIR = Path(r"C:\Users\Mansoor Kachhi\OneDrive\Desktop\ml-bigdata-analytics")
 model_path = BASE_DIR / "artifacts" / "dashboard_model.pkl"
@@ -59,7 +63,10 @@ def pick_metric(d: dict, keys: list, default="N/A"):
 def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
     out = df.copy()
 
+<<<<<<< HEAD
     # derive VendorID_2 if model expects it
+=======
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
     if "VendorID_2" in feature_cols and "VendorID_2" not in out.columns:
         if "VendorID" in out.columns:
             out["VendorID_2"] = (
@@ -68,14 +75,20 @@ def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFra
         else:
             out["VendorID_2"] = 0
 
+<<<<<<< HEAD
     # ensure required cols exist
+=======
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
     for col in feature_cols:
         if col not in out.columns:
             out[col] = 0
 
     out = out[feature_cols]
 
+<<<<<<< HEAD
     # numeric coercion
+=======
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
     for col in out.columns:
         out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
 
@@ -87,7 +100,11 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
         "trip_distance": float(trip_distance),
         "pickup_hour": int(pickup_hour),
         "pickup_dayofweek": int(pickup_weekday),
+<<<<<<< HEAD
         "pickup_weekday": int(pickup_weekday),  # compatibility
+=======
+        "pickup_weekday": int(pickup_weekday),
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
         "pickup_month": int(pickup_month),
         "VendorID": int(vendor_id),
         "VendorID_2": 1 if int(vendor_id) == 2 else 0,
@@ -235,7 +252,11 @@ with tab2:
                 st.success(f"Estimated Fare: ${pred:.2f}")
                 st.caption("Estimate may vary due to traffic, tolls, route choice, and real-time conditions.")
 
+<<<<<<< HEAD
                 # concise debug lines (can remove later)
+=======
+                # compact debug (optional)
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
                 st.write("Using model:", model.__class__.__name__)
                 st.write("Aligned trip_distance:", X.iloc[0].get("trip_distance", "MISSING"))
                 st.write("Raw pred:", raw_pred)

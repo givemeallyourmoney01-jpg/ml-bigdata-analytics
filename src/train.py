@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import joblib
 import numpy as np
@@ -9,10 +9,16 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
+<<<<<<< HEAD
 
 DATA_PATH = "data/raw/yellow_tripdata_2015-01.csv"
 ARTIFACT_DIR = "artifacts"
 TARGET = "fare_amount"
+=======
+DATA_PATH = "data/raw/yellow_tripdata_2015-01.csv"
+ARTIFACT_DIR = "artifacts"
+TARGET = "total_amount"
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
 SAMPLE_SIZE = 200000
 RANDOM_STATE = 42
 
@@ -24,14 +30,19 @@ MODEL_FEATURES = [
     "pickup_month",
     "VendorID",
 ]
+<<<<<<< HEAD
 
 
 def preprocess_training_data(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
 
+=======
+
+def preprocess_training_data(df: pd.DataFrame) -> pd.DataFrame:
+    d = df.copy()
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
     d["tpep_pickup_datetime"] = pd.to_datetime(d["tpep_pickup_datetime"], errors="coerce")
     d["tpep_dropoff_datetime"] = pd.to_datetime(d["tpep_dropoff_datetime"], errors="coerce")
-
     d["pickup_hour"] = d["tpep_pickup_datetime"].dt.hour
     d["pickup_dayofweek"] = d["tpep_pickup_datetime"].dt.dayofweek
     d["pickup_month"] = d["tpep_pickup_datetime"].dt.month
@@ -51,20 +62,27 @@ def preprocess_training_data(df: pd.DataFrame) -> pd.DataFrame:
     if "VendorID" not in d.columns:
         d["VendorID"] = 1
     d["VendorID"] = d["VendorID"].fillna(1).astype(int)
+<<<<<<< HEAD
 
     for c in ["trip_distance", TARGET]:
         if c in d.columns:
             q1 = d[c].quantile(0.01)
             q99 = d[c].quantile(0.99)
             d[c] = d[c].clip(q1, q99)
+=======
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
 
+    for c in ["trip_distance", TARGET]:
+        q1 = d[c].quantile(0.01)
+        q99 = d[c].quantile(0.99)
+        d[c] = d[c].clip(q1, q99)
     return d
-
 
 def main():
     os.makedirs(ARTIFACT_DIR, exist_ok=True)
     print(f"Loading data from: {DATA_PATH}")
 
+<<<<<<< HEAD
     usecols = [
         "tpep_pickup_datetime",
         "tpep_dropoff_datetime",
@@ -79,6 +97,10 @@ def main():
         "VendorID": "float32",
         "fare_amount": "float32",
     }
+=======
+    usecols = ["tpep_pickup_datetime","tpep_dropoff_datetime","passenger_count","trip_distance","VendorID","total_amount"]
+    dtypes = {"passenger_count":"float32","trip_distance":"float32","VendorID":"float32","total_amount":"float32"}
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
 
     df = pd.read_csv(DATA_PATH, usecols=usecols, dtype=dtypes, nrows=SAMPLE_SIZE)
     print("Loaded shape:", df.shape)
@@ -87,16 +109,25 @@ def main():
     print("Processed shape:", d.shape)
 
     d_model = pd.get_dummies(d, columns=["VendorID"], drop_first=True)
+<<<<<<< HEAD
 
+=======
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
     X = d_model.drop(columns=[TARGET])
     y = d_model[TARGET]
 
     print("Training features:", X.columns.tolist())
+<<<<<<< HEAD
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=RANDOM_STATE
     )
 
+=======
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=RANDOM_STATE)
+
+>>>>>>> b2eee7f (Fix dashboard model loading and prediction pipeline; restore full 3-tab Streamlit UI)
     model = LinearRegression()
     model.fit(X_train, y_train)
     preds = model.predict(X_test)
@@ -126,7 +157,7 @@ def main():
         "metrics": {"rmse": float(rmse), "mae": float(mae), "r2": float(r2)},
         "train_rows": int(X_train.shape[0]),
         "test_rows": int(X_test.shape[0]),
-        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        "created_at": datetime.now(UTC).isoformat().replace("+00:00","Z")
     }
 
     with open(metadata_path, "w", encoding="utf-8") as f:
@@ -135,7 +166,6 @@ def main():
     print("Saved:", model_path)
     print("Saved:", features_path)
     print("Saved:", metadata_path)
-
 
 if __name__ == "__main__":
     main()
