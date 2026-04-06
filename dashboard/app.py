@@ -19,6 +19,82 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ===== LUXURY VISUAL LAYER (FORCED) =====
+st.markdown("""
+<style>
+/* Force full-page luxury background */
+.stApp {
+  background: linear-gradient(180deg,#050505 0%,#0c0f14 100%) !important;
+}
+
+/* Make main app transparent so custom layer shows */
+[data-testid="stAppViewContainer"] { background: transparent !important; }
+[data-testid="stHeader"] { background: rgba(0,0,0,0) !important; }
+[data-testid="stToolbar"] { right: 1rem; }
+
+/* Glass cards */
+div[data-testid="stMetric"]{
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,193,7,0.35) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Animated scene (always visible)
+components.html("""
+<div id="lux-bg">
+  <div class="sky"></div>
+  <div class="road"></div>
+  <div class="lane lane1"></div>
+  <div class="lane lane2"></div>
+  <div class="taxi"></div>
+</div>
+
+<style>
+  #lux-bg{
+    position: fixed; inset: 0; z-index: 0; pointer-events:none; overflow:hidden;
+    background:
+      radial-gradient(circle at 15% -10%, rgba(255,193,7,.14), transparent 35%),
+      radial-gradient(circle at 85% -10%, rgba(255,140,0,.10), transparent 30%),
+      linear-gradient(180deg,#060606 0%,#0d1018 60%,#101522 100%);
+  }
+  .sky{
+    position:absolute; left:0; right:0; bottom:30%; height:22%; opacity:.18;
+    background: repeating-linear-gradient(to right, rgba(255,255,255,.16) 0 20px, rgba(255,255,255,.08) 20px 30px, transparent 30px 40px);
+    mask-image: linear-gradient(to top, black 55%, transparent 100%);
+  }
+  .road{ position:absolute; left:0; right:0; bottom:0; height:30%; background:#0a0a0c; }
+  .lane{
+    position:absolute; left:-20%; width:140%; height:3px;
+    background: repeating-linear-gradient(to right, transparent 0 35px, rgba(255,193,7,.8) 35px 70px);
+    animation: move 2.6s linear infinite;
+  }
+  .lane1{ bottom:16%; }
+  .lane2{ bottom:10%; opacity:.65; animation-duration:3.2s; }
+  @keyframes move { from {transform:translateX(0)} to {transform:translateX(-220px)} }
+
+  .taxi{
+    position:absolute; bottom:12%; width:88px; height:34px; border-radius:10px;
+    background: linear-gradient(180deg,#ffd54f,#ffb300);
+    box-shadow: 0 0 22px rgba(255,193,7,.5);
+    animation: drive 14s linear infinite;
+  }
+  .taxi:before{
+    content:''; position:absolute; top:-11px; left:20px; width:46px; height:15px;
+    background:#f3c141; border-radius:7px 7px 0 0;
+  }
+  @keyframes drive{
+    0%{ transform: translateX(-140px); }
+    100%{ transform: translateX(calc(100vw + 160px)); }
+  }
+</style>
+""", height=0)
+
+# Foreground container hint
+st.markdown("<div style='position:relative; z-index:2'></div>", unsafe_allow_html=True)
+
 # =============================
 # LUXURY THEME CSS + BACKGROUND
 # =============================
