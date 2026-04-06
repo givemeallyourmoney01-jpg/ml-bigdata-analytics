@@ -16,7 +16,6 @@ TARGET = "total_amount"
 SAMPLE_SIZE = 200000
 RANDOM_STATE = 42
 
-# ONLY features available in Streamlit single prediction form
 MODEL_FEATURES = [
     "passenger_count",
     "trip_distance",
@@ -30,37 +29,29 @@ MODEL_FEATURES = [
 def preprocess_training_data(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
 
-    # Datetime parsing
     d["tpep_pickup_datetime"] = pd.to_datetime(d["tpep_pickup_datetime"], errors="coerce")
     d["tpep_dropoff_datetime"] = pd.to_datetime(d["tpep_dropoff_datetime"], errors="coerce")
 
-    # Form-aligned time features
     d["pickup_hour"] = d["tpep_pickup_datetime"].dt.hour
     d["pickup_dayofweek"] = d["tpep_pickup_datetime"].dt.dayofweek
     d["pickup_month"] = d["tpep_pickup_datetime"].dt.month
 
-    # Keep only needed columns + target
     keep_cols = MODEL_FEATURES + [TARGET]
     d = d[[c for c in keep_cols if c in d.columns]].copy()
 
-    # Basic cleaning
     d = d.drop_duplicates()
     d = d.dropna(subset=[TARGET, "pickup_hour", "pickup_dayofweek", "pickup_month"])
-
     d = d[d["trip_distance"] >= 0]
     d = d[d[TARGET] >= 0]
     d = d[d["passenger_count"] > 0]
 
-    # Fill numeric nulls with median
     for col in d.select_dtypes(include=[np.number]).columns:
         d[col] = d[col].fillna(d[col].median())
 
-    # Ensure VendorID exists
     if "VendorID" not in d.columns:
         d["VendorID"] = 1
     d["VendorID"] = d["VendorID"].fillna(1).astype(int)
 
-    # Outlier clipping
     for c in ["trip_distance", TARGET]:
         if c in d.columns:
             q1 = d[c].quantile(0.01)
@@ -72,7 +63,6 @@ def preprocess_training_data(df: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     os.makedirs(ARTIFACT_DIR, exist_ok=True)
-
     print(f"Loading data from: {DATA_PATH}")
 
     usecols = [
@@ -83,7 +73,6 @@ def main():
         "VendorID",
         "total_amount",
     ]
-
     dtypes = {
         "passenger_count": "float32",
         "trip_distance": "float32",
@@ -91,19 +80,12 @@ def main():
         "total_amount": "float32",
     }
 
-    # Memory-safe loading
-    df = pd.read_csv(
-        DATA_PATH,
-        usecols=usecols,
-        dtype=dtypes,
-        nrows=SAMPLE_SIZE
-    )
+    df = pd.read_csv(DATA_PATH, usecols=usecols, dtype=dtypes, nrows=SAMPLE_SIZE)
     print("Loaded shape:", df.shape)
 
     d = preprocess_training_data(df)
     print("Processed shape:", d.shape)
 
-    # One-hot encode VendorID
     d_model = pd.get_dummies(d, columns=["VendorID"], drop_first=True)
 
     X = d_model.drop(columns=[TARGET])
@@ -115,7 +97,6 @@ def main():
         X, y, test_size=0.2, random_state=RANDOM_STATE
     )
 
-    # Linear model => strong sensitivity to trip_distance changes
     model = LinearRegression()
     model.fit(X_train, y_train)
     preds = model.predict(X_test)
@@ -128,11 +109,11 @@ def main():
     print(f"MAE : {mae:.6f}")
     print(f"R²  : {r2:.6f}")
 
-    # Save dedicated dashboard artifacts
     model_path = os.path.join(ARTIFACT_DIR, "dashboard_model.pkl")
-    joblib.dump(model, model_path)
-
     features_path = os.path.join(ARTIFACT_DIR, "dashboard_feature_columns.json")
+    metadata_path = os.path.join(ARTIFACT_DIR, "dashboard_model_metadata.json")
+
+    joblib.dump(model, model_path)
     with open(features_path, "w", encoding="utf-8") as f:
         json.dump(X.columns.tolist(), f, indent=2)
 
@@ -148,7 +129,6 @@ def main():
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z")
     }
 
-    metadata_path = os.path.join(ARTIFACT_DIR, "dashboard_model_metadata.json")
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
 
