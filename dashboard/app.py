@@ -12,15 +12,18 @@ st.title("🚕 NYC Taxi Fare Intelligence")
 st.caption("ML dashboard for analytics, single prediction, and batch scoring")
 
 # -----------------------------
-# Paths
+# Paths (robust)
 # -----------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent  # repo root
+APP_DIR = Path(__file__).resolve().parent
+BASE_DIR = APP_DIR.parent  # expected repo root
 
-# ✅ use dedicated dashboard artifacts
+# Fallback if launched from unexpected context
+if not (BASE_DIR / "artifacts").exists():
+    BASE_DIR = Path.cwd()
+
 model_path = BASE_DIR / "artifacts" / "dashboard_model.pkl"
 feature_cols_path = BASE_DIR / "artifacts" / "dashboard_feature_columns.json"
 metrics_file = BASE_DIR / "artifacts" / "dashboard_model_metadata.json"
-
 features_file = BASE_DIR / "data" / "processed" / "day2_sample_clean.csv"
 
 # Strict: use ONLY dashboard metadata
@@ -40,6 +43,12 @@ if not features_file.exists():
             break
     else:
         features_file = None
+
+# Path debug
+st.caption(f"DEBUG BASE_DIR: {BASE_DIR}")
+st.caption(f"DEBUG model exists: {model_path.exists()} -> {model_path}")
+st.caption(f"DEBUG feature cols exists: {feature_cols_path.exists()} -> {feature_cols_path}")
+st.caption(f"DEBUG metrics exists: {False if metrics_file is None else Path(metrics_file).exists()} -> {metrics_file}")
 
 # -----------------------------
 # Loaders (non-cached)
@@ -67,7 +76,6 @@ def pick_metric(d: dict, keys: list, default="N/A"):
 def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
     out = df.copy()
 
-    # If model expects VendorID_2, derive from VendorID if needed
     if "VendorID_2" in feature_cols and "VendorID_2" not in out.columns:
         if "VendorID" in out.columns:
             out["VendorID_2"] = (
@@ -76,14 +84,12 @@ def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFra
         else:
             out["VendorID_2"] = 0
 
-    # Ensure all required columns exist
     for col in feature_cols:
         if col not in out.columns:
             out[col] = 0
 
     out = out[feature_cols]
 
-    # numeric coercion
     for col in out.columns:
         out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
 
@@ -95,7 +101,7 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
         "trip_distance": float(trip_distance),
         "pickup_hour": int(pickup_hour),
         "pickup_dayofweek": int(pickup_weekday),
-        "pickup_weekday": int(pickup_weekday),  # compatibility
+        "pickup_weekday": int(pickup_weekday),
         "pickup_month": int(pickup_month),
         "VendorID": int(vendor_id),
         "VendorID_2": 1 if int(vendor_id) == 2 else 0,
@@ -107,7 +113,7 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
 metrics = {}
 if metrics_file:
     try:
-        metrics = load_json(metrics_file)
+        metrics = load_json(Path(metrics_file))
     except Exception:
         metrics = {}
 
@@ -130,7 +136,6 @@ if model_ready:
         st.error(f"Model artifacts found but failed to load: {e}")
         model_ready = False
 
-# Supports nested and flat metrics JSON
 metrics_block = metrics.get("metrics", {}) if isinstance(metrics, dict) else {}
 
 rmse_val = pick_metric(metrics_block, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
@@ -183,24 +188,6 @@ with tab1:
         else:
             st.write("No feature dataset found in configured/fallback paths.")
 
-    ch1, ch2 = st.columns(2)
-
-    with ch1:
-        st.subheader("Pickup Hour Distribution")
-        if df is not None and "pickup_hour" in df.columns:
-            fig = px.histogram(df, x="pickup_hour", nbins=24, title="Trip Count by Pickup Hour")
-            st.plotly_chart(fig, width="stretch")
-        else:
-            st.caption("Chart unavailable (missing data/column).")
-
-    with ch2:
-        st.subheader("Duration Distribution")
-        if df is not None and "trip_duration_min" in df.columns:
-            fig2 = px.histogram(df, x="trip_duration_min", nbins=80, title="Trip Duration (min)")
-            st.plotly_chart(fig2, width="stretch")
-        else:
-            st.caption("Chart unavailable (missing data/column).")
-
 with tab2:
     st.subheader("Fare Estimator")
     st.caption("Enter trip details and estimate fare.")
@@ -224,47 +211,17 @@ with tab2:
 
         if st.button("Predict Fare", type="primary"):
             try:
-                row = build_input_row(
-                    passenger_count,
-                    trip_distance,
-                    pickup_hour,
-                    pickup_weekday,
-                    pickup_month,
-                    vendor_id,
-                )
+                row = build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id)
                 X = align_to_training_schema(row, feature_cols)
 
                 raw_pred = float(model.predict(X)[0])
                 pred = max(raw_pred, 0.0)
 
                 st.success(f"Estimated Fare: ${pred:.2f}")
-                st.caption("Estimate may vary due to traffic, tolls, route choice, and real-time conditions.")
 
-                # requested debug lines
                 st.write("Using model:", model.__class__.__name__)
                 st.write("Aligned trip_distance:", X.iloc[0].get("trip_distance", "MISSING"))
                 st.write("Raw pred:", raw_pred)
-
-                # Debug panel
-                with st.expander("Prediction debug", expanded=True):
-                    st.write("Model path:", str(model_path))
-                    st.write("Model exists:", model_path.exists())
-                    if model_path.exists():
-                        st.write("Model mtime:", datetime.fromtimestamp(model_path.stat().st_mtime))
-
-                    st.write("Feature columns path:", str(feature_cols_path))
-                    st.write("Feature columns exists:", feature_cols_path.exists())
-                    if feature_cols_path.exists():
-                        st.write("Feature columns mtime:", datetime.fromtimestamp(feature_cols_path.stat().st_mtime))
-
-                    st.write("Loaded feature cols:", feature_cols)
-                    st.write("Input row:", row.to_dict(orient="records")[0])
-                    st.write("Aligned row:", X.to_dict(orient="records")[0])
-
-                    if "trip_distance" in X.columns:
-                        st.write("trip_distance used:", float(X.iloc[0]["trip_distance"]))
-                    else:
-                        st.write("trip_distance used:", "MISSING in aligned features")
 
             except Exception as e:
                 st.error(f"Prediction failed: {e}")
@@ -272,40 +229,3 @@ with tab2:
 with tab3:
     st.subheader("Batch Prediction (CSV)")
     st.caption("Upload a CSV, generate predictions, and download output.")
-
-    if not model_ready:
-        st.warning("Batch prediction unavailable. Missing model artifacts.")
-    else:
-        st.code("Required columns: passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, VendorID")
-        uploaded = st.file_uploader("Upload CSV file", type=["csv"])
-
-        if uploaded is not None:
-            try:
-                batch_df = pd.read_csv(uploaded)
-                st.dataframe(batch_df.head(10), width="stretch")
-
-                # Accept either pickup_weekday or pickup_dayofweek
-                if "pickup_dayofweek" not in batch_df.columns and "pickup_weekday" in batch_df.columns:
-                    batch_df["pickup_dayofweek"] = batch_df["pickup_weekday"]
-
-                required_any = ["passenger_count", "trip_distance", "pickup_hour", "pickup_month", "VendorID", "pickup_dayofweek"]
-                missing = [c for c in required_any if c not in batch_df.columns]
-                if missing:
-                    st.error(f"Missing required columns: {missing}")
-                else:
-                    Xb = align_to_training_schema(batch_df, feature_cols)
-                    preds = model.predict(Xb)
-                    out = batch_df.copy()
-                    out["predicted_fare"] = preds
-
-                    st.success(f"Predictions generated for {len(out):,} rows.")
-                    st.dataframe(out.head(20), width="stretch")
-
-                    st.download_button(
-                        label="⬇️ Download predictions CSV",
-                        data=out.to_csv(index=False).encode("utf-8"),
-                        file_name="predictions_output.csv",
-                        mime="text/csv",
-                    )
-            except Exception as e:
-                st.error(f"Failed to process uploaded file: {e}")
