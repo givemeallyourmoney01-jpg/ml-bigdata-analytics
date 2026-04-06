@@ -1,231 +1,71 @@
 import json
 from pathlib import Path
-from datetime import datetime
-
 import joblib
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 
 st.set_page_config(page_title="NYC Taxi Fare Intelligence", page_icon="🚕", layout="wide")
 st.title("🚕 NYC Taxi Fare Intelligence")
-st.caption("ML dashboard for analytics, single prediction, and batch scoring")
 
-# -----------------------------
-# Paths (robust)
-# -----------------------------
-APP_DIR = Path(__file__).resolve().parent
-BASE_DIR = APP_DIR.parent  # expected repo root
-
-# Fallback if launched from unexpected context
-if not (BASE_DIR / "artifacts").exists():
-    BASE_DIR = Path.cwd()
+# HARD PATH (your exact repo root)
+BASE_DIR = Path(r"C:\Users\Mansoor Kachhi\OneDrive\Desktop\ml-bigdata-analytics")
 
 model_path = BASE_DIR / "artifacts" / "dashboard_model.pkl"
 feature_cols_path = BASE_DIR / "artifacts" / "dashboard_feature_columns.json"
-metrics_file = BASE_DIR / "artifacts" / "dashboard_model_metadata.json"
-features_file = BASE_DIR / "data" / "processed" / "day2_sample_clean.csv"
+metrics_path = BASE_DIR / "artifacts" / "dashboard_model_metadata.json"
 
-# Strict: use ONLY dashboard metadata
-if not metrics_file.exists():
-    metrics_file = None
+st.write("DEBUG model:", model_path, model_path.exists())
+st.write("DEBUG features:", feature_cols_path, feature_cols_path.exists())
+st.write("DEBUG metrics:", metrics_path, metrics_path.exists())
 
-if not features_file.exists():
-    for p in [
-        BASE_DIR / "data" / "processed" / "day1_sample_clean.csv",
-        BASE_DIR / "data" / "processed" / "features.parquet",
-        BASE_DIR / "artifacts" / "features.parquet",
-        BASE_DIR / "features.parquet",
-        BASE_DIR / "outputs" / "features.parquet",
-    ]:
-        if p.exists():
-            features_file = p
-            break
-    else:
-        features_file = None
-
-# Path debug
-st.caption(f"DEBUG BASE_DIR: {BASE_DIR}")
-st.caption(f"DEBUG model exists: {model_path.exists()} -> {model_path}")
-st.caption(f"DEBUG feature cols exists: {feature_cols_path.exists()} -> {feature_cols_path}")
-st.caption(f"DEBUG metrics exists: {False if metrics_file is None else Path(metrics_file).exists()} -> {metrics_file}")
-
-# -----------------------------
-# Loaders (non-cached)
-# -----------------------------
-def load_model(path: Path):
-    return joblib.load(path)
-
-def load_json(path: Path):
-    with open(path, "r", encoding="utf-8") as f:
+def load_json(p: Path):
+    with open(p, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def load_dataset(path: Path):
-    if path.suffix.lower() == ".parquet":
-        return pd.read_parquet(path)
-    if path.suffix.lower() == ".csv":
-        return pd.read_csv(path)
-    return None
+model_ready = model_path.exists() and feature_cols_path.exists()
+metrics = load_json(metrics_path) if metrics_path.exists() else {}
 
-def pick_metric(d: dict, keys: list, default="N/A"):
-    for k in keys:
-        if k in d and d[k] is not None:
-            return d[k]
-    return default
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Model Ready", "Yes ✅" if model_ready else "No ❌")
+c2.metric("RMSE", f"{metrics.get('metrics', {}).get('rmse', 'N/A')}")
+c3.metric("MAE", f"{metrics.get('metrics', {}).get('mae', 'N/A')}")
+c4.metric("R²", f"{metrics.get('metrics', {}).get('r2', 'N/A')}")
 
-def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
-    out = df.copy()
+if not model_ready:
+    st.error("Model artifacts not found at hard path above.")
+    st.stop()
 
-    if "VendorID_2" in feature_cols and "VendorID_2" not in out.columns:
-        if "VendorID" in out.columns:
-            out["VendorID_2"] = (
-                pd.to_numeric(out["VendorID"], errors="coerce").fillna(1).astype(int) == 2
-            ).astype(int)
-        else:
-            out["VendorID_2"] = 0
+model = joblib.load(model_path)
+feature_cols = load_json(feature_cols_path)
 
-    for col in feature_cols:
-        if col not in out.columns:
-            out[col] = 0
+st.subheader("🎯 Single Prediction")
+passenger_count = st.number_input("Passenger Count", 1, 8, 1)
+trip_distance = st.number_input("Trip Distance (miles)", 0.1, 100.0, 2.0, 0.1)
+pickup_hour = st.slider("Pickup Hour", 0, 23, 12)
+pickup_dayofweek = st.slider("Pickup Weekday", 0, 6, 2)
+pickup_month = st.slider("Pickup Month", 1, 12, 4)
+vendor_id = st.selectbox("Vendor ID", [1, 2], index=0)
 
-    out = out[feature_cols]
-
-    for col in out.columns:
-        out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
-
-    return out
-
-def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id):
-    return pd.DataFrame([{
+if st.button("Predict Fare"):
+    row = pd.DataFrame([{
         "passenger_count": float(passenger_count),
         "trip_distance": float(trip_distance),
         "pickup_hour": int(pickup_hour),
-        "pickup_dayofweek": int(pickup_weekday),
-        "pickup_weekday": int(pickup_weekday),
+        "pickup_dayofweek": int(pickup_dayofweek),
         "pickup_month": int(pickup_month),
         "VendorID": int(vendor_id),
         "VendorID_2": 1 if int(vendor_id) == 2 else 0,
     }])
 
-# -----------------------------
-# Load resources
-# -----------------------------
-metrics = {}
-if metrics_file:
-    try:
-        metrics = load_json(Path(metrics_file))
-    except Exception:
-        metrics = {}
+    for c in feature_cols:
+        if c not in row.columns:
+            row[c] = 0
+    X = row[feature_cols]
+    for c in X.columns:
+        X[c] = pd.to_numeric(X[c], errors="coerce").fillna(0)
 
-df = None
-if features_file:
-    try:
-        df = load_dataset(features_file)
-    except Exception:
-        df = None
-
-model_ready = model_path.exists() and feature_cols_path.exists()
-model = None
-feature_cols = []
-
-if model_ready:
-    try:
-        model = load_model(model_path)
-        feature_cols = load_json(feature_cols_path)
-    except Exception as e:
-        st.error(f"Model artifacts found but failed to load: {e}")
-        model_ready = False
-
-metrics_block = metrics.get("metrics", {}) if isinstance(metrics, dict) else {}
-
-rmse_val = pick_metric(metrics_block, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
-if rmse_val == "N/A":
-    rmse_val = pick_metric(metrics, ["rmse", "test_rmse", "best_rmse", "val_rmse"])
-
-mae_val = pick_metric(metrics_block, ["mae", "test_mae", "best_mae", "val_mae"])
-if mae_val == "N/A":
-    mae_val = pick_metric(metrics, ["mae", "test_mae", "best_mae", "val_mae"])
-
-r2_val = pick_metric(metrics_block, ["r2", "test_r2", "best_r2", "val_r2"])
-if r2_val == "N/A":
-    r2_val = pick_metric(metrics, ["r2", "test_r2", "best_r2", "val_r2"])
-
-# -----------------------------
-# KPI row
-# -----------------------------
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("Model Ready", "Yes ✅" if model_ready else "No ❌")
-k2.metric("RMSE", f"{float(rmse_val):.4f}" if rmse_val != "N/A" else "N/A")
-k3.metric("MAE", f"{float(mae_val):.4f}" if mae_val != "N/A" else "N/A")
-k4.metric("R²", f"{float(r2_val):.4f}" if r2_val != "N/A" else "N/A")
-
-if not metrics:
-    st.info("Metrics unavailable right now. Predictions can still run if model artifacts are present.")
-if df is None:
-    st.info("Feature dataset unavailable right now. Analytics charts may be limited.")
-
-st.markdown("---")
-
-tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🎯 Single Prediction", "📦 Batch Prediction"])
-
-with tab1:
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.subheader("Model Metrics")
-        if metrics:
-            st.json(metrics)
-            st.caption(f"Source: {metrics_file}")
-        else:
-            st.write("No metrics JSON found in configured/fallback paths.")
-
-    with c2:
-        st.subheader("Data Snapshot")
-        if df is not None:
-            st.dataframe(df.head(10), width="stretch")
-            st.caption(f"Rows: {len(df):,} | Columns: {df.shape[1]}")
-            st.caption(f"Source: {features_file}")
-        else:
-            st.write("No feature dataset found in configured/fallback paths.")
-
-with tab2:
-    st.subheader("Fare Estimator")
-    st.caption("Enter trip details and estimate fare.")
-
-    if not model_ready:
-        st.warning("Prediction unavailable. Ensure dashboard artifacts exist in /artifacts.")
-    else:
-        a, b, c = st.columns(3)
-
-        with a:
-            passenger_count = st.number_input("Passenger Count", min_value=1, max_value=8, value=1, step=1)
-            trip_distance = st.number_input("Trip Distance (miles)", min_value=0.1, max_value=100.0, value=2.5, step=0.1)
-
-        with b:
-            pickup_hour = st.slider("Pickup Hour", min_value=0, max_value=23, value=14)
-            pickup_weekday = st.slider("Pickup Weekday (0=Mon, 6=Sun)", min_value=0, max_value=6, value=datetime.now().weekday())
-
-        with c:
-            pickup_month = st.slider("Pickup Month", min_value=1, max_value=12, value=datetime.now().month)
-            vendor_id = st.selectbox("Vendor ID", options=[1, 2], index=0)
-
-        if st.button("Predict Fare", type="primary"):
-            try:
-                row = build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id)
-                X = align_to_training_schema(row, feature_cols)
-
-                raw_pred = float(model.predict(X)[0])
-                pred = max(raw_pred, 0.0)
-
-                st.success(f"Estimated Fare: ${pred:.2f}")
-
-                st.write("Using model:", model.__class__.__name__)
-                st.write("Aligned trip_distance:", X.iloc[0].get("trip_distance", "MISSING"))
-                st.write("Raw pred:", raw_pred)
-
-            except Exception as e:
-                st.error(f"Prediction failed: {e}")
-
-with tab3:
-    st.subheader("Batch Prediction (CSV)")
-    st.caption("Upload a CSV, generate predictions, and download output.")
+    raw = float(model.predict(X)[0])
+    st.success(f"Estimated Fare: ${max(raw,0):.2f}")
+    st.write("Using model:", model.__class__.__name__)
+    st.write("Aligned trip_distance:", X.iloc[0].get("trip_distance"))
+    st.write("Raw pred:", raw)
