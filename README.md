@@ -1,4 +1,23 @@
-# ML Big Data Analytics — NYC Taxi Fare Intelligence 🚕✨
+<p align="center">
+  <img src="https://img.shields.io/badge/NYC-Taxi%20Fare%20Intelligence-111111?style=for-the-badge&logo=googlemaps&logoColor=F4C542" />
+  <img src="https://img.shields.io/badge/Luxury%20Theme-Pack-FFB020?style=for-the-badge&logo=streamlit&logoColor=111111" />
+  <img src="https://img.shields.io/badge/ML-Powered-2E7D32?style=for-the-badge&logo=scikitlearn&logoColor=white" />
+</p>
+
+<h1 align="center">🚕 NYC Taxi Fare Intelligence</h1>
+<p align="center">
+  Premium ML dashboard for fare forecasting, live route simulation, surge awareness, and batch analytics.
+</p>
+
+<p align="center">
+  <a href="https://github.com/givemeallyourmoney01-jpg/ml-bigdata-analytics">
+    <img src="https://img.shields.io/badge/View%20Repository-000000?style=flat-square&logo=github&logoColor=white" />
+  </a>
+</p>
+
+---
+
+# ML Big Data Analytics
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?logo=pandas&logoColor=white)
