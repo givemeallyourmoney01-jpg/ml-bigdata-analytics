@@ -1,5 +1,4 @@
-import json
-import time
+﻿import json
 from pathlib import Path
 from datetime import datetime
 
@@ -9,9 +8,6 @@ import plotly.express as px
 import streamlit as st
 import streamlit.components.v1 as components
 
-# =============================
-# PAGE CONFIG
-# =============================
 st.set_page_config(
     page_title="NYC Taxi Fare Intelligence",
     page_icon="🚕",
@@ -19,330 +15,134 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ===== LUXURY VISUAL LAYER (FORCED) =====
+# =============================
+# LUXURY ANIMATED BACKGROUND
+# =============================
 st.markdown("""
 <style>
-/* Force full-page luxury background */
-.stApp {
-  background: linear-gradient(180deg,#050505 0%,#0c0f14 100%) !important;
-}
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 
-/* Make main app transparent so custom layer shows */
-[data-testid="stAppViewContainer"] { background: transparent !important; }
+html, body, [class*="css"] { font-family: 'Manrope', sans-serif !important; }
+.stApp, [data-testid="stAppViewContainer"] {
+  background: transparent !important;
+}
 [data-testid="stHeader"] { background: rgba(0,0,0,0) !important; }
-[data-testid="stToolbar"] { right: 1rem; }
 
-/* Glass cards */
-div[data-testid="stMetric"]{
-  background: rgba(255,255,255,0.06) !important;
-  border: 1px solid rgba(255,193,7,0.35) !important;
-  border-radius: 14px !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important;
+#lux-bg{
+  position: fixed; inset: 0; z-index: -1; pointer-events:none; overflow:hidden;
+  background:
+    radial-gradient(circle at 10% -5%, rgba(255,193,7,.20), transparent 38%),
+    radial-gradient(circle at 90% -10%, rgba(255,140,0,.13), transparent 34%),
+    linear-gradient(180deg,#030303 0%,#0b0f19 58%,#121a2b 100%);
 }
-</style>
-""", unsafe_allow_html=True)
+.skyline{
+  position:absolute; left:0; right:0; bottom:30%; height:22%; opacity:.18;
+  background: repeating-linear-gradient(to right, rgba(255,255,255,.18) 0 20px, rgba(255,255,255,.08) 20px 30px, transparent 30px 40px);
+  mask-image: linear-gradient(to top, black 55%, transparent 100%);
+}
+.road{ position:absolute; left:0; right:0; bottom:0; height:30%; background:#080808; }
+.lane{
+  position:absolute; left:-20%; width:140%; height:3px;
+  background: repeating-linear-gradient(to right, transparent 0 35px, rgba(255,193,7,.85) 35px 70px);
+  animation: laneMove 2.6s linear infinite;
+}
+.l1{ bottom:16%; }
+.l2{ bottom:10%; opacity:.65; animation-duration:3.2s; }
+@keyframes laneMove{ 0%{transform:translateX(0)} 100%{transform:translateX(-220px)} }
 
-# Animated scene (always visible)
-components.html("""
+.taxi{
+  position:absolute; bottom:12%; width:90px; height:34px; border-radius:10px;
+  background: linear-gradient(180deg,#ffd54f,#ffb300);
+  box-shadow: 0 0 25px rgba(255,193,7,.5);
+  animation: drive 14s linear infinite;
+}
+.taxi:before{
+  content:''; position:absolute; top:-11px; left:20px; width:46px; height:15px;
+  border-radius:7px 7px 0 0; background:#f3c141;
+}
+@keyframes drive{ 0%{transform:translateX(-140px)} 100%{transform:translateX(calc(100vw + 160px))} }
+
+.rain{
+  position:absolute; inset:0;
+  background-image: repeating-linear-gradient(
+    110deg,
+    rgba(255,255,255,0.0) 0 14px,
+    rgba(255,255,255,0.08) 14px 15px,
+    rgba(255,255,255,0.0) 15px 28px
+  );
+  animation: rainFall .7s linear infinite;
+  opacity:.14;
+}
+@keyframes rainFall{ from{background-position:0 0} to{background-position:-90px 140px} }
+
+.hero{
+  border:1px solid rgba(255,193,7,.38);
+  border-radius:18px;
+  padding:20px 24px;
+  background: linear-gradient(120deg, rgba(255,193,7,.14), rgba(255,176,32,.08)), rgba(255,255,255,.04);
+  box-shadow: 0 12px 35px rgba(0,0,0,.35);
+}
+.hero h1{ margin:0; font-size:2rem; font-weight:800; color:#fff4cf; }
+.hero p{ margin:.4rem 0 0; color:#f8deb0; }
+
+.chip{
+  display:inline-block; margin-top:12px; margin-right:8px; padding:6px 11px;
+  border-radius:999px; background: rgba(255,193,7,.14);
+  border:1px solid rgba(255,193,7,.45); color:#ffe8a3; font-size:.75rem; font-weight:700;
+}
+
+div[data-testid="stMetric"]{
+  background: rgba(255,255,255,.07) !important;
+  border:1px solid rgba(255,193,7,.32) !important;
+  border-radius:14px !important;
+  box-shadow:0 8px 24px rgba(0,0,0,.30) !important;
+}
+.card{
+  background: rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:14px;
+  padding:14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.22);
+}
+.stTabs [data-baseweb="tab-list"]{ gap:8px; }
+.stTabs [data-baseweb="tab"]{
+  border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.03);
+}
+.stTabs [aria-selected="true"]{
+  border:1px solid rgba(255,193,7,.5) !important;
+  background:linear-gradient(90deg, rgba(255,193,7,.25), rgba(255,176,32,.14)) !important;
+}
+.stButton > button, .stDownloadButton > button{
+  border-radius:10px !important;
+  border:1px solid rgba(255,193,7,.55) !important;
+  background:linear-gradient(90deg,#cc8d00,#ffb020) !important;
+  color:#111 !important; font-weight:800 !important;
+}
+.small-muted{ color:#d2c8a6; font-size:.85rem; }
+</style>
+
 <div id="lux-bg">
-  <div class="sky"></div>
+  <div class="skyline"></div>
   <div class="road"></div>
-  <div class="lane lane1"></div>
-  <div class="lane lane2"></div>
+  <div class="lane l1"></div>
+  <div class="lane l2"></div>
   <div class="taxi"></div>
 </div>
+""", unsafe_allow_html=True)
 
-<style>
-  #lux-bg{
-    position: fixed; inset: 0; z-index: 0; pointer-events:none; overflow:hidden;
-    background:
-      radial-gradient(circle at 15% -10%, rgba(255,193,7,.14), transparent 35%),
-      radial-gradient(circle at 85% -10%, rgba(255,140,0,.10), transparent 30%),
-      linear-gradient(180deg,#060606 0%,#0d1018 60%,#101522 100%);
-  }
-  .sky{
-    position:absolute; left:0; right:0; bottom:30%; height:22%; opacity:.18;
-    background: repeating-linear-gradient(to right, rgba(255,255,255,.16) 0 20px, rgba(255,255,255,.08) 20px 30px, transparent 30px 40px);
-    mask-image: linear-gradient(to top, black 55%, transparent 100%);
-  }
-  .road{ position:absolute; left:0; right:0; bottom:0; height:30%; background:#0a0a0c; }
-  .lane{
-    position:absolute; left:-20%; width:140%; height:3px;
-    background: repeating-linear-gradient(to right, transparent 0 35px, rgba(255,193,7,.8) 35px 70px);
-    animation: move 2.6s linear infinite;
-  }
-  .lane1{ bottom:16%; }
-  .lane2{ bottom:10%; opacity:.65; animation-duration:3.2s; }
-  @keyframes move { from {transform:translateX(0)} to {transform:translateX(-220px)} }
-
-  .taxi{
-    position:absolute; bottom:12%; width:88px; height:34px; border-radius:10px;
-    background: linear-gradient(180deg,#ffd54f,#ffb300);
-    box-shadow: 0 0 22px rgba(255,193,7,.5);
-    animation: drive 14s linear infinite;
-  }
-  .taxi:before{
-    content:''; position:absolute; top:-11px; left:20px; width:46px; height:15px;
-    background:#f3c141; border-radius:7px 7px 0 0;
-  }
-  @keyframes drive{
-    0%{ transform: translateX(-140px); }
-    100%{ transform: translateX(calc(100vw + 160px)); }
-  }
-</style>
-""", height=0)
-
-# Foreground container hint
-st.markdown("<div style='position:relative; z-index:2'></div>", unsafe_allow_html=True)
-
-# =============================
-# LUXURY THEME CSS + BACKGROUND
-# =============================
-st.markdown(
-    """
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
-
-      :root{
-        --bg0:#050505;
-        --bg1:#0b0b0d;
-        --glass:rgba(255,255,255,0.06);
-        --glass2:rgba(255,255,255,0.03);
-        --line:rgba(255,255,255,0.12);
-        --txt:#f8f8f5;
-        --muted:#d3d0c3;
-        --gold:#f4c542;
-        --amber:#ffb020;
-        --taxi:#ffc107;
-        --ok:#37d67a;
-      }
-
-      html, body, [class*="css"]  {
-        font-family: 'Manrope', sans-serif !important;
-      }
-
-      .stApp {
-        background:
-          radial-gradient(1200px 500px at 20% -10%, rgba(255,193,7,0.12), transparent 50%),
-          radial-gradient(900px 400px at 90% -20%, rgba(255,176,32,0.10), transparent 55%),
-          linear-gradient(180deg, #040404 0%, #0a0a0c 40%, #0d0f13 100%);
-        color: var(--txt);
-      }
-
-      .block-container{
-        max-width: 1250px;
-        padding-top: 1rem;
-        padding-bottom: 2rem;
-      }
-
-      /* Animated background layer */
-      .nyc-bg-wrap{
-        position: fixed;
-        inset: 0;
-        z-index: -2;
-        pointer-events: none;
-        overflow: hidden;
-      }
-      .road{
-        position: absolute;
-        left: 0; right: 0; bottom: 0;
-        height: 32%;
-        background:
-          linear-gradient(180deg, rgba(20,20,22,0.8) 0%, rgba(8,8,9,0.95) 100%);
-      }
-      .lane{
-        position: absolute;
-        left: -20%;
-        width: 140%;
-        height: 3px;
-        background: repeating-linear-gradient(
-          to right,
-          rgba(255,193,7,0.0) 0 40px,
-          rgba(255,193,7,0.65) 40px 80px
-        );
-        animation: laneMove 2.2s linear infinite;
-      }
-      .lane.l1{ bottom: 18%; }
-      .lane.l2{ bottom: 12%; animation-duration: 2.8s; opacity: .7;}
-      @keyframes laneMove{
-        0%{ transform: translateX(0); }
-        100%{ transform: translateX(-240px); }
-      }
-
-      .taxi{
-        position:absolute;
-        bottom: 14%;
-        width: 86px;
-        height: 36px;
-        border-radius: 10px;
-        background: linear-gradient(180deg, #ffd54f, #ffb300);
-        box-shadow: 0 0 25px rgba(255,193,7,.45);
-        animation: taxiDrive 16s linear infinite;
-      }
-      .taxi:before{
-        content:'';
-        position:absolute;
-        top:-12px; left:20px;
-        width:46px; height:16px;
-        border-radius:7px 7px 0 0;
-        background:#f2c037;
-      }
-      .taxi:after{
-        content:'';
-        position:absolute;
-        left:8px; right:8px; bottom:-6px;
-        height:6px;
-        border-radius:6px;
-        background:rgba(0,0,0,.35);
-        filter: blur(2px);
-      }
-      @keyframes taxiDrive{
-        0%{ transform: translateX(-120px); }
-        100%{ transform: translateX(calc(100vw + 140px)); }
-      }
-
-      .skyline{
-        position:absolute;
-        left:0; right:0; bottom:27%;
-        height:26%;
-        background:
-          linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)),
-          repeating-linear-gradient(
-            to right,
-            rgba(200,200,200,.14) 0 22px,
-            rgba(130,130,130,.08) 22px 32px,
-            transparent 32px 38px
-          );
-        mask-image: linear-gradient(to top, black 55%, transparent 100%);
-        opacity:.18;
-      }
-
-      .rain{
-        position:absolute;
-        inset:0;
-        background-image: repeating-linear-gradient(
-          110deg,
-          rgba(255,255,255,0.0) 0 14px,
-          rgba(255,255,255,0.08) 14px 15px,
-          rgba(255,255,255,0.0) 15px 28px
-        );
-        animation: rainFall .7s linear infinite;
-        opacity:.14;
-      }
-      @keyframes rainFall{
-        from{ background-position: 0 0; }
-        to{ background-position: -90px 140px; }
-      }
-
-      .hero{
-        border: 1px solid rgba(255,193,7,0.28);
-        background:
-          linear-gradient(120deg, rgba(255,193,7,0.12), rgba(255,176,32,0.06)),
-          rgba(255,255,255,0.03);
-        border-radius: 18px;
-        padding: 20px 24px;
-        box-shadow: 0 12px 35px rgba(0,0,0,.35);
-      }
-      .hero h1{
-        margin:0;
-        font-size: 2rem;
-        font-weight: 800;
-        letter-spacing: .2px;
-        color:#fff9e6;
-      }
-      .hero p{
-        margin:.4rem 0 0;
-        color:#f3e4b6;
-      }
-
-      .chip{
-        display:inline-block;
-        margin-top: 12px;
-        margin-right: 8px;
-        padding: 6px 11px;
-        border-radius: 999px;
-        background: rgba(255,193,7,0.13);
-        border: 1px solid rgba(255,193,7,0.40);
-        color:#ffe8a3;
-        font-size:.75rem;
-        font-weight:700;
-      }
-
-      div[data-testid="stMetric"]{
-        background: linear-gradient(180deg, var(--glass), var(--glass2));
-        border:1px solid var(--line);
-        border-radius:14px;
-        padding: 12px;
-        box-shadow: 0 8px 20px rgba(0,0,0,.25);
-      }
-
-      .card{
-        background: linear-gradient(180deg, var(--glass), var(--glass2));
-        border:1px solid var(--line);
-        border-radius:14px;
-        padding:14px;
-        box-shadow: 0 8px 20px rgba(0,0,0,.25);
-      }
-
-      .stTabs [data-baseweb="tab-list"]{ gap:8px; }
-      .stTabs [data-baseweb="tab"]{
-        border-radius: 10px;
-        border:1px solid rgba(255,255,255,.12);
-        background: rgba(255,255,255,.03);
-      }
-      .stTabs [aria-selected="true"]{
-        border:1px solid rgba(255,193,7,.45) !important;
-        background: linear-gradient(90deg, rgba(255,193,7,.22), rgba(255,176,32,.13)) !important;
-      }
-
-      .stButton > button, .stDownloadButton > button{
-        border-radius:10px !important;
-        border:1px solid rgba(255,193,7,.55) !important;
-        background: linear-gradient(90deg, #cc8d00, #ffb020) !important;
-        color:#121212 !important;
-        font-weight:800 !important;
-        transition: .2s ease;
-      }
-      .stButton > button:hover, .stDownloadButton > button:hover{
-        transform: translateY(-1px);
-        box-shadow: 0 8px 22px rgba(255,176,32,.28);
-      }
-
-      .small-muted{ color:#d2c8a6; font-size:.85rem; }
-
-    </style>
-
-    <div class="nyc-bg-wrap">
-      <div class="skyline"></div>
-      <div class="road"></div>
-      <div class="lane l1"></div>
-      <div class="lane l2"></div>
-      <div class="taxi"></div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# Rain mode toggle
 night_rain = st.toggle("🌧️ Night / Rain Mode", value=False)
 if night_rain:
-    st.markdown('<div class="nyc-bg-wrap"><div class="rain"></div></div>', unsafe_allow_html=True)
+    st.markdown('<div id="lux-bg"><div class="rain"></div></div>', unsafe_allow_html=True)
 
-# =============================
-# HEADER
-# =============================
-st.markdown(
-    """
-    <div class="hero">
-      <h1>🚕 NYC Taxi Fare Intelligence</h1>
-      <p>Luxury analytics cockpit for intelligent fare forecasting, route insights, and batch scoring.</p>
-      <span class="chip">Real-time Fare Intelligence</span>
-      <span class="chip">Surge-Aware UX</span>
-      <span class="chip">Premium SaaS Aesthetic</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown("""
+<div class="hero">
+  <h1>🚕 NYC Taxi Fare Intelligence</h1>
+  <p>Luxury analytics cockpit for intelligent fare forecasting, live route simulation, and batch scoring.</p>
+  <span class="chip">Real-Time Fare Intelligence</span>
+  <span class="chip">Animated Urban UX</span>
+  <span class="chip">Premium SaaS Dashboard</span>
+</div>
+""", unsafe_allow_html=True)
 
 st.write("")
 
@@ -370,9 +170,6 @@ if not features_file.exists():
         features_file = None
 
 
-# =============================
-# HELPERS
-# =============================
 def load_json(path: Path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -410,7 +207,6 @@ def align_to_training_schema(df: pd.DataFrame, feature_cols: list) -> pd.DataFra
     out = out[feature_cols]
     for col in out.columns:
         out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
-
     return out
 
 def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id):
@@ -425,9 +221,6 @@ def build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday,
         "VendorID_2": 1 if int(vendor_id) == 2 else 0,
     }])
 
-# =============================
-# LOAD RESOURCES
-# =============================
 model_ready = model_path.exists() and feature_cols_path.exists()
 model, feature_cols, metrics, df = None, [], {}, None
 
@@ -463,47 +256,15 @@ if mae_val == "N/A":
 if r2_val == "N/A":
     r2_val = pick_metric(metrics, ["r2", "test_r2", "best_r2", "val_r2"])
 
-# =============================
-# ANIMATED COUNTERS (micro-interaction)
-# =============================
-def animated_metric(label, value, suffix=""):
-    placeholder = st.empty()
-    try:
-        target = float(value)
-        steps = 20
-        for i in range(1, steps + 1):
-            val = target * i / steps
-            if abs(target) < 10:
-                display = f"{val:.2f}{suffix}"
-            else:
-                display = f"{val:.1f}{suffix}"
-            placeholder.metric(label, display)
-            time.sleep(0.01)
-    except Exception:
-        placeholder.metric(label, f"{value}{suffix}")
-
-# KPI row
 k1, k2, k3, k4 = st.columns(4)
-with k1:
-    st.metric("System", "Ready ✅" if model_ready else "Offline ❌")
-with k2:
-    animated_metric("RMSE", rmse_val if rmse_val != "N/A" else 0)
-with k3:
-    animated_metric("MAE", mae_val if mae_val != "N/A" else 0)
-with k4:
-    animated_metric("R² Score", r2_val if r2_val != "N/A" else 0)
-
-if not metrics:
-    st.info("Metrics metadata unavailable. Inference still works if artifacts are present.")
-if df is None:
-    st.info("Feature dataset unavailable; some analytics may be limited.")
+k1.metric("Model Status", "Ready ✅" if model_ready else "Unavailable ❌")
+k2.metric("RMSE", f"{float(rmse_val):.4f}" if rmse_val != "N/A" else "N/A")
+k3.metric("MAE", f"{float(mae_val):.4f}" if mae_val != "N/A" else "N/A")
+k4.metric("R² Score", f"{float(r2_val):.4f}" if r2_val != "N/A" else "N/A")
 
 st.markdown("---")
 tab1, tab2, tab3 = st.tabs(["📊 Fare Insights", "🗺️ Live Map + Fare", "📦 Analytics & Batch"])
 
-# =============================
-# TAB 1: FARE INSIGHTS PANEL
-# =============================
 with tab1:
     a, b, c = st.columns([1.1, 1.1, 1])
 
@@ -543,18 +304,14 @@ with tab1:
             st.metric("Avg Duration", "N/A")
         st.markdown("</div>", unsafe_allow_html=True)
 
-# =============================
-# TAB 2: LIVE MAP SECTION + PREDICTION
-# =============================
 with tab2:
     st.subheader("Live Route Experience")
-    st.caption("Pickup/drop simulation + live fare estimation")
+    st.caption("Animated route simulation + live fare estimation")
 
-    # Faux animated map block (premium visual if no Mapbox)
     components.html(
         """
         <div style="
-          height:260px; border-radius:14px; border:1px solid rgba(255,255,255,.12);
+          height:260px; border-radius:14px; border:1px solid rgba(255,255,255,.18);
           background:
             radial-gradient(circle at 20% 30%, rgba(255,193,7,.18), transparent 24%),
             radial-gradient(circle at 80% 70%, rgba(255,193,7,.12), transparent 20%),
@@ -578,7 +335,6 @@ with tab2:
         height=270,
     )
 
-    st.write("")
     if not model_ready:
         st.warning("Prediction unavailable. Ensure artifacts exist in /artifacts.")
     else:
@@ -597,18 +353,12 @@ with tab2:
             submitted = st.form_submit_button("🚕 Calculate Premium Fare", use_container_width=True)
 
         if submitted:
-            row = build_input_row(
-                passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id
-            )
+            row = build_input_row(passenger_count, trip_distance, pickup_hour, pickup_weekday, pickup_month, vendor_id)
             X = align_to_training_schema(row, feature_cols)
-            raw_pred = float(model.predict(X)[0])
-            pred = max(raw_pred, 0.0)
+            pred = max(float(model.predict(X)[0]), 0.0)
             st.success(f"Estimated Fare: **${pred:.2f}**")
             st.caption("Fare may vary due to route, tolls, weather, and demand.")
 
-# =============================
-# TAB 3: ANALYTICS CARDS + BATCH
-# =============================
 with tab3:
     c1, c2, c3, c4 = st.columns(4)
 
@@ -616,18 +366,12 @@ with tab3:
     avg_fare = df["total_amount"].mean() if (df is not None and "total_amount" in df.columns) else 0
     peak_hour = int(df["pickup_hour"].mode()[0]) if (df is not None and "pickup_hour" in df.columns and not df.empty) else 0
 
-    with c1:
-        st.metric("Total Rides", f"{total_rides:,}")
-    with c2:
-        st.metric("Avg Fare", f"${avg_fare:.2f}")
-    with c3:
-        st.metric("Peak Hour", f"{peak_hour}:00")
-    with c4:
-        st.metric("Demand Index", "High" if total_rides > 100000 else "Moderate")
+    c1.metric("Total Rides", f"{total_rides:,}")
+    c2.metric("Avg Fare", f"${avg_fare:.2f}")
+    c3.metric("Peak Hour", f"{peak_hour}:00")
+    c4.metric("Demand Index", "High" if total_rides > 100000 else "Moderate")
 
-    st.write("")
     left, right = st.columns(2)
-
     with left:
         st.subheader("Peak Hours Distribution")
         if df is not None and "pickup_hour" in df.columns:
@@ -639,13 +383,7 @@ with tab3:
         st.subheader("Demand Heatmap (Hour vs Weekday)")
         if df is not None and {"pickup_hour", "pickup_dayofweek"}.issubset(df.columns):
             heat = df.groupby(["pickup_dayofweek", "pickup_hour"]).size().reset_index(name="rides")
-            fig2 = px.density_heatmap(
-                heat,
-                x="pickup_hour",
-                y="pickup_dayofweek",
-                z="rides",
-                color_continuous_scale="YlOrBr"
-            )
+            fig2 = px.density_heatmap(heat, x="pickup_hour", y="pickup_dayofweek", z="rides", color_continuous_scale="YlOrBr")
             fig2.update_layout(template="plotly_dark", height=330)
             st.plotly_chart(fig2, use_container_width=True)
 
