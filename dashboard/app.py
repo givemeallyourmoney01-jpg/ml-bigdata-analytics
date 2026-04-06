@@ -53,14 +53,10 @@ if not features_file.exists():
 # -----------------------------
 # Loaders (cache-busted by file mtime)
 # -----------------------------
-@st.cache_resource
-def load_model(path: Path, mtime_salt: float):
-    _ = mtime_salt
+def load_model(path: Path):
     return joblib.load(path)
 
-@st.cache_data
-def load_json(path: Path, mtime_salt: float):
-    _ = mtime_salt
+def load_json(path: Path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
