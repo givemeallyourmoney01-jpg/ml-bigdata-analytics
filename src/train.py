@@ -12,7 +12,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 DATA_PATH = "data/raw/yellow_tripdata_2015-01.csv"
 ARTIFACT_DIR = "artifacts"
-TARGET = "total_amount"
+TARGET = "fare_amount"
 SAMPLE_SIZE = 200000
 RANDOM_STATE = 42
 
@@ -71,13 +71,13 @@ def main():
         "passenger_count",
         "trip_distance",
         "VendorID",
-        "total_amount",
+        "fare_amount",
     ]
     dtypes = {
         "passenger_count": "float32",
         "trip_distance": "float32",
         "VendorID": "float32",
-        "total_amount": "float32",
+        "fare_amount": "float32",
     }
 
     df = pd.read_csv(DATA_PATH, usecols=usecols, dtype=dtypes, nrows=SAMPLE_SIZE)
