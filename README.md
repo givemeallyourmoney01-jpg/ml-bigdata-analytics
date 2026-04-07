@@ -290,6 +290,35 @@ Output:
 
 ---
 
+## 🙏 Acknowledgements
+
+- NYC TLC trip-record public datasets for enabling real-world fare modeling experiments.
+- Open-source Python ecosystem: **Pandas, NumPy, Scikit-learn, Plotly, Streamlit**.
+- Community documentation and examples that accelerated iterative dashboard and ML pipeline development.
+
+---
+
+## 📚 How to Cite
+
+If you use this project, please cite it as:
+
+```bibtex
+@misc{kachhi2026nyctaxi,
+  author       = {Jafar Kachhi and Janvi Patel},
+  title        = {NYC Taxi Fare Intelligence: ML Big Data Analytics},
+  year         = {2026},
+  publisher    = {GitHub},
+  howpublished = {\url{https://github.com/givemeallyourmoney01-jpg/ml-bigdata-analytics}}
+}
+```
+
+Or in plain text:
+
+> Kachhi, J., & Patel, J. (2026). *NYC Taxi Fare Intelligence: ML Big Data Analytics*.  
+> GitHub repository: https://github.com/givemeallyourmoney01-jpg/ml-bigdata-analytics
+
+---
+
 ## 👤 Authors
 
 - **Jafar Kachhi**
