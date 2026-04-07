@@ -265,6 +265,31 @@ Output:
 
 ---
 
+## ⚠️ Known Limitations
+
+- **Data scope:** Current training/evaluation is based on sampled/processed NYC taxi data and may not fully represent all seasonal or borough-level behavior.
+- **Feature coverage:** Fare drivers like tolls, exact route geometry, weather severity, and special events are simplified or not fully modeled.
+- **Surge logic in UI:** Surge indicator is currently a **time-based heuristic** for UX demonstration, not a real-time market feed.
+- **Model consistency:** Experimental notebooks may include multiple model variants; dashboard inference depends on the artifact currently loaded in `artifacts/`.
+- **Map realism:** Live route section is a visual simulation unless integrated with a real map/traffic API.
+- **Operational robustness:** No deployed API, auth, request throttling, or centralized observability stack yet.
+- **Drift handling:** Automated retraining and drift alerts are not yet enabled.
+
+---
+
+## 🚀 Future Work
+
+- Integrate **real-time map and traffic layers** (Mapbox/Leaflet + traffic API).
+- Add **weather/event features** to improve robustness during abnormal demand periods.
+- Serve model via **FastAPI** with versioned endpoints and structured logging.
+- Add **ML monitoring** (data drift, prediction drift, performance decay alerts).
+- Compare advanced models (e.g., **XGBoost/LightGBM/CatBoost**) with explainability (SHAP).
+- Add CI/CD for model + dashboard deployment (GitHub Actions).
+- Introduce role-based dashboard views for Ops, Product, and Finance users.
+- Build scheduled retraining + artifact registry workflow.
+
+---
+
 ## 👤 Authors
 
 - **Jafar Kachhi**
