@@ -24,7 +24,10 @@ MODEL_FEATURES = [
     "pickup_month",
     "VendorID",
 ]
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1697bb8 (Fix merge conflict and restore working training pipeline)
 
 def preprocess_training_data(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
