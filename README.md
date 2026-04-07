@@ -312,7 +312,7 @@ If you use this project, please cite it as:
 }
 ```
 
-Or in plain text:
+Or:
 
 > Kachhi, J., & Patel, J. (2026). *NYC Taxi Fare Intelligence: ML Big Data Analytics*.  
 > GitHub repository: https://github.com/givemeallyourmoney01-jpg/ml-bigdata-analytics
